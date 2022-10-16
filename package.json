@@ -1,0 +1,44 @@
+{
+    "name": "notion-statistics-bot-backend",
+    "version": "0.0.1",
+    "main": "index.js",
+    "description": "用于Notion上数据库统计成员的贡献度, 后端程序",
+    "author": {
+        "name": "Nicodemus Du",
+        "email": "nicodemusdu@gmail.com"
+    },
+    "license": "MIT",
+    "private": false,
+    "scripts": {
+        "dev": "tsrpc-cli dev",
+        "build": "tsrpc-cli build",
+        "doc": "tsrpc-cli doc",
+        "test": "mocha test/**/*.test.ts",
+        "proto": "tsrpc-cli proto",
+        "sync": "tsrpc-cli sync",
+        "api": "tsrpc-cli api",
+        "lint": "eslint src/**/*.ts"
+    },
+    "devDependencies": {
+        "@types/mocha": "^8.2.3",
+        "@types/node": "^15.14.9",
+        "@typescript-eslint/eslint-plugin": "^5.39.0",
+        "@typescript-eslint/parser": "^5.39.0",
+        "eslint": "^8.25.0",
+        "eslint-config-airbnb": "^19.0.4",
+        "eslint-config-airbnb-base": "^15.0.0",
+        "eslint-config-airbnb-typescript": "^17.0.0",
+        "eslint-config-prettier": "^8.5.0",
+        "eslint-plugin-import": "^2.26.0",
+        "mocha": "^9.2.2",
+        "onchange": "^7.1.0",
+        "ts-node": "^10.9.1",
+        "tsrpc-cli": "^2.4.5",
+        "typescript": "^4.8.4"
+    },
+    "dependencies": {
+        "@notionhq/client": "^2.2.1",
+        "dotenv": "^16.0.3",
+        "tsrpc": "^3.4.6"
+    }
+}

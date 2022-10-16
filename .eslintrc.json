@@ -1,0 +1,27 @@
+{
+    "env": {
+        "browser": true,
+        "es2021": true
+    },
+    "overrides": [],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "ecmaVersion": "latest"
+    },
+    "plugins": ["@typescript-eslint"],
+    "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/eslint-recommended",
+        "plugin:@typescript-eslint/recommended",
+        "prettier"
+
+        // "plugin:import/recommended",
+        // "plugin:import/typescript",
+        // "airbnb",
+        // "airbnb-typescript",
+    ],
+
+    "rules": {
+        "no-constant-condition": "off"
+    }
+}
