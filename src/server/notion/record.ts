@@ -2,13 +2,13 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:26:36
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-14 11:02:04
- * @FilePath: /backend/src/server/notion/record.ts
+ * @LastEditTime: 2022-10-17 22:09:32
+ * @FilePath: /notion-statistics-bot-backend/src/server/notion/record.ts
  * @Description: 统计条目记录表,也是统计结果的数据源
  *
  * Copyright (c) 2022 by Nicodemus nicodemusdu@gmail.com, All Rights Reserved.
  */
-import { EDatabaseName } from './types';
+import { EDatabaseName, IRecordDatabaseModel } from './types';
 import { Client } from '@notionhq/client';
 import { PersonUserObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { recordDatabaseModelData as recordData } from './data';
@@ -55,7 +55,11 @@ export async function createRecordDatabase(notionClient: Client, parentId: strin
                 type: 'number',
                 number: { format: 'number' },
             },
-            [recordData.LastRecordDate.name]: {
+            [recordData.StartRecordDate.name]: {
+                type: 'date',
+                date: {},
+            },
+            [recordData.EndRecordDate.name]: {
                 type: 'date',
                 date: {},
             },
@@ -67,7 +71,7 @@ export async function createRecordDatabase(notionClient: Client, parentId: strin
 /**
  * @description: 向指定Record数据库中插入一条记录
  * @param {Client} notionClient
- * @param {string} resultDBId
+ * @param {string} recordDBId
  * @param {string} taskId
  * @param {string} fromDatabaseId
  * @param {PersonUserObjectResponse} contributor
@@ -76,15 +80,17 @@ export async function createRecordDatabase(notionClient: Client, parentId: strin
  */
 export async function insertRecordDatabaseItem(
     notionClient: Client,
-    resultDBId: string,
+    recordDBId: string,
     taskId: string,
     fromDatabaseId: string,
     contributor: PersonUserObjectResponse,
     points: number,
+    startDateISOString: string,
+    endDateISOString: string,
 ) {
     const result = await notionClient.pages.create({
         parent: {
-            database_id: resultDBId,
+            database_id: recordDBId,
         },
         properties: {
             [recordData.TaskId.name]: {
@@ -99,14 +105,17 @@ export async function insertRecordDatabaseItem(
             [recordData.ContributorId.name]: {
                 rich_text: [{ text: { content: contributor.id } }],
             },
-            [recordData.ContributorId.name]: {
+            [recordData.Contributor.name]: {
                 people: [contributor],
             },
             [recordData.Points.name]: {
                 number: points,
             },
-            [recordData.LastRecordDate.name]: {
-                date: { start: new Date(Date.now()).toISOString() },
+            [recordData.StartRecordDate.name]: {
+                date: { start: startDateISOString },
+            },
+            [recordData.EndRecordDate.name]: {
+                date: { start: endDateISOString },
             },
         },
     });

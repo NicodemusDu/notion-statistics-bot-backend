@@ -2,8 +2,8 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 22:23:20
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-14 18:11:24
- * @FilePath: /backend/src/server/notion/types.ts
+ * @LastEditTime: 2022-10-17 14:57:41
+ * @FilePath: /notion-statistics-bot-backend/src/server/notion/types.ts
  * @Description:
  *
  * Copyright (c) 2022 by Nicodemus nicodemusdu@gmail.com, All Rights Reserved.
@@ -138,6 +138,7 @@ export enum EConfigurationItem {
     Filed_TranslationEndTimeFiledName = 'Filed_TranslationEndTimeFiledName',
     Filed_ProofreadStartTimeFiledName = 'Filed_ProofreadStartTimeFiledName',
     Filed_ProofreadonEndTimeFiledName = 'Filed_ProofreadonEndTimeFiledName',
+    Filed_TaskIdFiledName = 'Filed_TaskIdFiledName',
 }
 
 export enum EResultItem {
@@ -152,6 +153,7 @@ export enum EResultItem {
 /**          数据库模型                */
 interface IDatabaseItem {
     name: string;
+    value?: object;
     type: EPropertyType;
 }
 
@@ -161,7 +163,8 @@ export interface IRecordDatabaseModel {
     ContributorId: IDatabaseItem; // TODO: 这个也许用不到,看看要不要删掉
     Contributor: IDatabaseItem;
     Points: IDatabaseItem;
-    LastRecordDate: IDatabaseItem;
+    StartRecordDate: IDatabaseItem;
+    EndRecordDate: IDatabaseItem;
 }
 
 export interface IStatisticsResultDatabaseModel {

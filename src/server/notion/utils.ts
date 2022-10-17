@@ -2,8 +2,8 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:21:01
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-14 14:35:15
- * @FilePath: /backend/src/server/notion/utils.ts
+ * @LastEditTime: 2022-10-17 15:58:25
+ * @FilePath: /notion-statistics-bot-backend/src/server/notion/utils.ts
  * @Description: notion 基本操作工具(增删改查)
  *
  * Copyright (c) 2022 by Nicodemus nicodemusdu@gmail.com, All Rights Reserved.
@@ -20,6 +20,7 @@ import {
 import { notionClient, logger } from '.';
 import { UserError } from './error';
 import { IContributor } from './types';
+import { v4 as uuidv4, parse as uuidParse } from 'uuid';
 /**
  * @description: 查找名称为dbName的数据库, 如果想查找所有数据库,就不要给dbName赋值
  * @param {Client} notionClient
@@ -74,6 +75,19 @@ export async function getDatabaseProperties(nocionClient: Client, databaseId: st
         titles.push(response.properties[per]);
     }
     return titles;
+}
+
+/**
+ * @description: 判断属性propertyName是否在databaseId数据库中
+ * @param {Client} notionClient
+ * @param {string} databaseId
+ * @param {string} propertyName
+ * @return {*}
+ */
+export async function hasPropertyInDatabase(notionClient: Client, databaseId: string, propertyName: string) {
+    const response = await notionClient.databases.retrieve({ database_id: databaseId });
+
+    return response.properties[propertyName] ? true : false;
 }
 
 /**
@@ -221,6 +235,19 @@ function isPropertyList(propertyRes: PropertyItemObjectResponse | PropertyItemOb
     if (propertyRes && 'length' in propertyRes && propertyRes.length) {
         return true;
     } else {
+        return false;
+    }
+}
+
+export function getUUID() {
+    return uuidv4();
+}
+
+export function isValidUUID(uuid: string) {
+    try {
+        uuidParse(uuid);
+        return true;
+    } catch {
         return false;
     }
 }

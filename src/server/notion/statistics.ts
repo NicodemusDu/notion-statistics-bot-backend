@@ -2,19 +2,19 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:25:08
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-14 12:15:05
- * @FilePath: /backend/src/server/notion/statistics.ts
+ * @LastEditTime: 2022-10-17 18:02:05
+ * @FilePath: /notion-statistics-bot-backend/src/server/notion/statistics.ts
  * @Description: 统计过程的相关操作和统计结果的数据库操作
  *
  * Copyright (c) 2022 by Nicodemus nicodemusdu@gmail.com, All Rights Reserved.
  */
 import { Client, isFullPage } from '@notionhq/client';
 import { PersonUserObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { IMember, EPropertyType, EDatabaseName } from './types';
+import { IMember, EPropertyType, EDatabaseName, EConfigurationItem } from './types';
 import { resultDatabaseModelData } from './data';
 import { Logger } from 'tsrpc';
 import { UserError } from './error';
-import { getNumberPropertyValue } from './utils';
+import { getNumberPropertyValue, hasPropertyInDatabase } from './utils';
 
 export async function createResultDatabase(notionClient: Client, parentId: string) {
     const newDB = await notionClient.databases.create({
@@ -221,5 +221,54 @@ export async function updateMemberRecord(memberInfo: IMember) {
         memberInfo.bountyList && member.bountyList?.push(...memberInfo.bountyList);
     } else {
         members.set(memberInfo.id, memberInfo);
+    }
+}
+
+export async function createAutofillPropertyInStatisticsSource(
+    notionClient: Client,
+    dbId: string,
+    propertyIdMap: Map<string, string>,
+) {
+    let needUpdate = false;
+    await Promise.all(
+        Array.from(propertyIdMap.values()).map(async (propertyName) => {
+            const hasProperty = await hasPropertyInDatabase(notionClient, dbId, propertyName);
+            // 如果有属性不存在,需要重新更新数据库的属性.
+            if (!hasProperty) {
+                needUpdate = true;
+            }
+        }),
+    );
+    if (needUpdate) {
+        // 更新所有程序计算要用到的Configuration数据库字段
+        await notionClient.databases.update({
+            database_id: dbId,
+            properties: {
+                [propertyIdMap.get(EConfigurationItem.Filed_InformationSourceEndTimeFiledName) as string]: {
+                    type: 'date',
+                    date: {},
+                },
+                [propertyIdMap.get(EConfigurationItem.Filed_TranslationStartTimeFiledName) as string]: {
+                    type: 'date',
+                    date: {},
+                },
+                [propertyIdMap.get(EConfigurationItem.Filed_TranslationEndTimeFiledName) as string]: {
+                    type: 'date',
+                    date: {},
+                },
+                [propertyIdMap.get(EConfigurationItem.Filed_ProofreadStartTimeFiledName) as string]: {
+                    type: 'date',
+                    date: {},
+                },
+                [propertyIdMap.get(EConfigurationItem.Filed_ProofreadonEndTimeFiledName) as string]: {
+                    type: 'date',
+                    date: {},
+                },
+                [propertyIdMap.get(EConfigurationItem.Filed_TaskIdFiledName) as string]: {
+                    type: 'rich_text',
+                    rich_text: {},
+                },
+            },
+        });
     }
 }

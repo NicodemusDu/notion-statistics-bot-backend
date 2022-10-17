@@ -2,8 +2,8 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 11:42:24
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-14 15:26:49
- * @FilePath: /backend/src/server/notion/data.ts
+ * @LastEditTime: 2022-10-17 14:58:58
+ * @FilePath: /notion-statistics-bot-backend/src/server/notion/data.ts
  * @Description:
  *
  * Copyright (c) 2022 by Nicodemus nicodemusdu@gmail.com, All Rights Reserved.
@@ -111,6 +111,12 @@ export const configurationInitData: IConfigurationDB[] = [
         Value: '校对完成时间',
         Description: '[校对完成时间]在统计源数据库中的字段名称(应该是Date类型)',
     },
+    {
+        Key: EConfigurationItem.Filed_TaskIdFiledName,
+        Value: '唯一标识',
+        Description:
+            '[TaskId]在统计源数据库中的字段名称(应该是rich_text类型,作为这条任务的唯一标识,不管移动到哪个数据库中都不变)',
+    },
 ];
 
 export const resultDatabaseModelData: IStatisticsResultDatabaseModel = {
@@ -169,8 +175,12 @@ export const recordDatabaseModelData: IRecordDatabaseModel = {
         name: 'Points',
         type: EPropertyType.NUMBER,
     },
-    LastRecordDate: {
-        name: 'LastStatisticsDate',
+    StartRecordDate: {
+        name: 'StartRecordDate',
+        type: EPropertyType.DATE,
+    },
+    EndRecordDate: {
+        name: 'EndRecordDate',
         type: EPropertyType.DATE,
     },
 };
