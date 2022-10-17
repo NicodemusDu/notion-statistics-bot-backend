@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 11:42:24
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-17 14:58:58
+ * @LastEditTime: 2022-10-17 22:19:07
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/data.ts
  * @Description:
  *
@@ -182,5 +182,9 @@ export const recordDatabaseModelData: IRecordDatabaseModel = {
     EndRecordDate: {
         name: 'EndRecordDate',
         type: EPropertyType.DATE,
+    },
+    IsStatisticsCompleted: {
+        name: 'IsStatisticsCompleted',
+        type: EPropertyType.CHECKBOX,
     },
 };

@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 22:23:20
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-17 14:57:41
+ * @LastEditTime: 2022-10-17 22:13:20
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/types.ts
  * @Description:
  *
@@ -165,6 +165,7 @@ export interface IRecordDatabaseModel {
     Points: IDatabaseItem;
     StartRecordDate: IDatabaseItem;
     EndRecordDate: IDatabaseItem;
+    IsStatisticsCompleted: IDatabaseItem;
 }
 
 export interface IStatisticsResultDatabaseModel {

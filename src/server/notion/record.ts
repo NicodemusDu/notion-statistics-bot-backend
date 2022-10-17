@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:26:36
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-17 22:09:32
+ * @LastEditTime: 2022-10-17 22:16:18
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/record.ts
  * @Description: 统计条目记录表,也是统计结果的数据源
  *
@@ -63,6 +63,10 @@ export async function createRecordDatabase(notionClient: Client, parentId: strin
                 type: 'date',
                 date: {},
             },
+            [recordData.IsStatisticsCompleted.name]: {
+                type: 'checkbox',
+                checkbox: {},
+            },
         },
     });
     return newDB.id;
@@ -87,6 +91,7 @@ export async function insertRecordDatabaseItem(
     points: number,
     startDateISOString: string,
     endDateISOString: string,
+    isCompleted = false,
 ) {
     const result = await notionClient.pages.create({
         parent: {
@@ -116,6 +121,9 @@ export async function insertRecordDatabaseItem(
             },
             [recordData.EndRecordDate.name]: {
                 date: { start: endDateISOString },
+            },
+            [recordData.IsStatisticsCompleted.name]: {
+                checkbox: isCompleted,
             },
         },
     });
