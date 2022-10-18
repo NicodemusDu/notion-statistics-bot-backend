@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:26:36
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-18 15:24:08
+ * @LastEditTime: 2022-10-18 17:06:49
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/record.ts
  * @Description: 统计条目记录表,也是统计结果的数据源
  *
@@ -182,5 +182,3 @@ export async function isRecordDatabaseItemCompleted(notionClient: Client, pageId
     }
     return null;
 }
-
-export async function updateAllRecordDatabaseFromStatisticsDatabase() {}

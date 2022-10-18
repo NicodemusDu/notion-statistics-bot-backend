@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:21:01
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-18 15:19:43
+ * @LastEditTime: 2022-10-18 16:10:36
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/utils.ts
  * @Description: notion 基本操作工具(增删改查)
  *
@@ -270,7 +270,7 @@ export function isValidUUID(uuid: string) {
  * @param {string} titleName
  * @return {*} null 不存在, string 返回找到的pageId
  */
-export async function isExistTitleInDatabase(
+export async function isExistTitleInRecordDatabase(
     nocionClient: Client,
     dbId: string,
     titleValue: string,
@@ -317,6 +317,27 @@ export function pageResponseToPersonList(
                 list.push(p);
             }
         });
+    }
+    return list;
+}
+
+/**
+ * @description: 解析PageResponse的rich_text属性
+ * @param {PageObjectResponse} pageResponse
+ * @param {string} propertyName
+ * @return {*} 如果指定的属性名中包含rich_text属性,就把对应的string列表返回,否则返回空列表
+ */
+export function pageResponseToRichTextList(pageResponse: PageObjectResponse, propertyName: string): string[] | null {
+    const list: string[] = [];
+    try {
+        const textObj = pageResponse.properties[propertyName];
+        if (textObj.type === 'rich_text') {
+            textObj.rich_text.map((text) => {
+                list.push(text.plain_text);
+            });
+        }
+    } catch {
+        return null;
     }
     return list;
 }

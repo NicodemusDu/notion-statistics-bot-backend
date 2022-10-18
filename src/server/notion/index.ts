@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 17:40:07
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-18 15:33:12
+ * @LastEditTime: 2022-10-18 17:16:48
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/index.ts
  * @Description:
  *
@@ -26,7 +26,8 @@ import {
     pageResponseToPersonList,
     pageResponseStartDateToISOString,
     pageResponseFormulaToNumber,
-    isExistTitleInDatabase as isExistTitleInRecordDatabase,
+    isExistTitleInRecordDatabase,
+    pageResponseToRichTextList,
 } from './utils';
 import { EDatabaseName, EConfigurationItem, IProjectConfiguration, IBaseType, EPropertyType } from './types';
 import { UserError } from './error';
@@ -41,7 +42,7 @@ import { createRecordDatabase, insertRecordDatabaseItem } from './record';
 import { recordDatabaseModelData as recordData } from './data';
 
 import dotenv from 'dotenv';
-import { PersonUserObjectResponse } from '@notionhq/client/build/src/api-endpoints';
+import { PageObjectResponse, PersonUserObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 dotenv.config();
 
 // 调试信息的输出方式
@@ -252,7 +253,7 @@ export async function initNotionStatistics(_logger: Logger) {
     projectDBConfig.InformationSourceRecordDBId = sourceRecordId;
     projectDBConfig.TranslationRecordDBId = transRecordId;
     projectDBConfig.ProofeadRecordDBId = proofeadRecordId;
-    projectDBConfig.ProofeadRecordDBId = bountyRecordId;
+    projectDBConfig.BountyRecordDBId = bountyRecordId;
     projectDBConfig.StatisticsContributionDBIdList = statisticsContributionList;
     projectDBConfig.StatisticsBountyDBIdList = statisticsBountyList;
 
@@ -340,6 +341,52 @@ export async function testNotion() {
 
     logger.log(statisticFiledNameConfigMap);
     // 常用类型: rich_text, title, date, number, [person], formula, 把常用类型判断做成utils工具吧;
+
+    const recordToDatabase = async ({
+        page,
+        statisticsDBId,
+        taskId,
+        contributorFiledName,
+        startTimeFiledName,
+        endTimeFiledName,
+        pointsFiledName,
+        recordDBId,
+    }: {
+        page: PageObjectResponse;
+        statisticsDBId: string;
+        taskId: string;
+        contributorFiledName: string;
+        startTimeFiledName: string;
+        endTimeFiledName: string;
+        pointsFiledName: string;
+        recordDBId: string;
+    }) => {
+        // 完成时间
+        const endTime = pageResponseStartDateToISOString(page, endTimeFiledName);
+        if (!endTime) throw new UserError(`请填写 ${taskId} 任务的 ${endTimeFiledName}`);
+        // 贡献者
+        const contributorList = pageResponseToPersonList(page, contributorFiledName);
+        if (!contributorList.length) throw new UserError(`请填写 ${taskId} 任务的 ${contributorFiledName}`);
+        // 积分
+        const points = pageResponseFormulaToNumber(page, pointsFiledName);
+        if (!points) throw new UserError(`请填写 ${taskId} 任务的 ${pointsFiledName}`);
+        // 开始时间
+        const startTime = pageResponseStartDateToISOString(page, startTimeFiledName);
+        if (!startTime) throw new UserError(`请填写 ${taskId} 任务的 ${startTimeFiledName}`);
+
+        // 记录信息到数据库
+        await insertRecordDatabaseItem(
+            notionClient,
+            recordDBId,
+            taskId,
+            statisticsDBId,
+            contributorList[0],
+            points,
+            startTime,
+            endTime,
+        );
+    };
+
     await statisticPropertyIdMap.forEach(async (propertyIdMap, statisticsDBId) => {
         const pages = await getDatabaseAllPages(notionClient, statisticsDBId);
 
@@ -349,12 +396,12 @@ export async function testNotion() {
                 let taskId: string;
                 const taskIdName =
                     statisticFiledNameConfigMap.get(EConfigurationItem.Filed_TaskIdFiledName) || 'TaskId';
-                const taskIdProperty = page.properties[taskIdName];
+                const taskIdList = pageResponseToRichTextList(page, taskIdName);
                 // 如果taskId的值不存在或者是无效的uuid
-                if ('rich_text' === taskIdProperty.type) {
+                if (taskIdList) {
                     // 生成一个uuid并且更新数据库
-                    if (taskIdProperty.rich_text.length && isValidUUID(taskIdProperty.rich_text[0].plain_text)) {
-                        taskId = taskIdProperty.rich_text[0].plain_text;
+                    if (taskIdList.length && isValidUUID(taskIdList[0])) {
+                        taskId = taskIdList[0];
                     } else {
                         taskId = getUUID();
                         notionClient.pages.update({
@@ -370,24 +417,7 @@ export async function testNotion() {
                 } else {
                     throw new UserError(`统计源数据库 ${statisticsDBId} 中, ${taskIdName}属性不存在`);
                 }
-                // 信源完成时间()
-                const sourceEndTimeFiled =
-                    statisticFiledNameConfigMap.get(EConfigurationItem.Filed_InformationSourceEndTimeFiledName) ||
-                    '信源完成时间';
-                const sourceEndTime = pageResponseStartDateToISOString(page, sourceEndTimeFiled);
-                if (!sourceEndTime) throw new UserError(`请填写 ${taskId} 任务的 ${sourceEndTimeFiled}`);
-
-                // 信源提供人
-                const sourcePersonFiled =
-                    statisticFiledNameConfigMap.get(EConfigurationItem.Filed_InformationSourceFiledName) || '信源';
-                const sourcePersonList = pageResponseToPersonList(page, sourcePersonFiled);
-                if (!sourcePersonList.length) throw new UserError(`请填写 ${taskId} 任务的 ${sourcePersonFiled}`);
-                // 积分
-                const pointsFiled =
-                    statisticFiledNameConfigMap.get(EConfigurationItem.Filed_TotalPointsFiledName) || '积分';
-                const points = pageResponseFormulaToNumber(page, pointsFiled);
-                if (!points) throw new UserError(`请填写 ${taskId} 任务的 ${pointsFiled}`);
-
+                // 信源贡献记录
                 if (
                     await isExistTitleInRecordDatabase(
                         notionClient,
@@ -396,20 +426,105 @@ export async function testNotion() {
                         recordData.TaskId.name,
                     )
                 ) {
-                    logger.log(`------------------------------------${taskId} 已经存在了`);
+                    logger.log(`${taskId} 在数据库 ${projectDBConfig.InformationSourceRecordDBId}中已经有记录了`);
                 } else {
-                    await insertRecordDatabaseItem(
+                    try {
+                        await recordToDatabase({
+                            page,
+                            statisticsDBId,
+                            taskId,
+                            contributorFiledName:
+                                statisticFiledNameConfigMap.get(EConfigurationItem.Filed_InformationSourceFiledName) ||
+                                '信源',
+                            startTimeFiledName:
+                                statisticFiledNameConfigMap.get(
+                                    EConfigurationItem.Filed_InformationSourceEndTimeFiledName,
+                                ) || '信源完成时间',
+                            endTimeFiledName:
+                                statisticFiledNameConfigMap.get(
+                                    EConfigurationItem.Filed_InformationSourceEndTimeFiledName,
+                                ) || '信源完成时间',
+                            pointsFiledName:
+                                statisticFiledNameConfigMap.get(EConfigurationItem.Filed_TotalPointsFiledName) ||
+                                '积分',
+                            recordDBId: projectDBConfig.InformationSourceRecordDBId,
+                        });
+                    } catch (err) {
+                        logger.error(err);
+                    }
+                }
+                // 翻译贡献记录
+                if (
+                    await isExistTitleInRecordDatabase(
                         notionClient,
-                        projectDBConfig.InformationSourceRecordDBId,
+                        projectDBConfig.TranslationRecordDBId,
                         taskId,
-                        statisticsDBId,
-                        sourcePersonList[0],
-                        points,
-                        sourceEndTime,
-                        sourceEndTime,
-                    );
+                        recordData.TaskId.name,
+                    )
+                ) {
+                    logger.log(`${taskId} 在数据库 ${projectDBConfig.TranslationRecordDBId}中已经有记录了`);
+                } else {
+                    try {
+                        // 翻译贡献记录
+                        await recordToDatabase({
+                            page,
+                            statisticsDBId,
+                            taskId,
+                            contributorFiledName:
+                                statisticFiledNameConfigMap.get(EConfigurationItem.Filed_TranslationFiledName) ||
+                                '翻译',
+                            startTimeFiledName:
+                                statisticFiledNameConfigMap.get(
+                                    EConfigurationItem.Filed_TranslationStartTimeFiledName,
+                                ) || '翻译开始时间',
+                            endTimeFiledName:
+                                statisticFiledNameConfigMap.get(EConfigurationItem.Filed_TranslationEndTimeFiledName) ||
+                                '翻译完成时间',
+                            pointsFiledName:
+                                statisticFiledNameConfigMap.get(EConfigurationItem.Filed_TotalPointsFiledName) ||
+                                '积分',
+                            recordDBId: projectDBConfig.TranslationRecordDBId,
+                        });
+                    } catch (err) {
+                        logger.error(err);
+                    }
+                }
+                // 校对贡献记录
+                if (
+                    await isExistTitleInRecordDatabase(
+                        notionClient,
+                        projectDBConfig.ProofeadRecordDBId,
+                        taskId,
+                        recordData.TaskId.name,
+                    )
+                ) {
+                    logger.log(`${taskId} 在数据库 ${projectDBConfig.ProofeadRecordDBId}中已经有记录了`);
+                } else {
+                    try {
+                        // 校对贡献记录
+                        await recordToDatabase({
+                            page,
+                            statisticsDBId,
+                            taskId,
+                            contributorFiledName:
+                                statisticFiledNameConfigMap.get(EConfigurationItem.Filed_ProofreadFiledName) || '校对',
+                            startTimeFiledName:
+                                statisticFiledNameConfigMap.get(EConfigurationItem.Filed_ProofreadStartTimeFiledName) ||
+                                '校对开始时间',
+                            endTimeFiledName:
+                                statisticFiledNameConfigMap.get(EConfigurationItem.Filed_ProofreadonEndTimeFiledName) ||
+                                '校对完成时间',
+                            pointsFiledName:
+                                statisticFiledNameConfigMap.get(EConfigurationItem.Filed_TotalPointsFiledName) ||
+                                '积分',
+                            recordDBId: projectDBConfig.ProofeadRecordDBId,
+                        });
+                    } catch (err) {
+                        logger.error(err);
+                    }
                 }
             }),
         );
+        logger.log('testNotion record finished');
     });
 }
