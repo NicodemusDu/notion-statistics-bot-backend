@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 17:40:07
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-18 10:31:17
+ * @LastEditTime: 2022-10-18 15:33:12
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/index.ts
  * @Description:
  *
@@ -24,6 +24,9 @@ import {
     getUUID,
     isValidUUID,
     pageResponseToPersonList,
+    pageResponseStartDateToISOString,
+    pageResponseFormulaToNumber,
+    isExistTitleInDatabase as isExistTitleInRecordDatabase,
 } from './utils';
 import { EDatabaseName, EConfigurationItem, IProjectConfiguration, IBaseType, EPropertyType } from './types';
 import { UserError } from './error';
@@ -337,10 +340,8 @@ export async function testNotion() {
 
     logger.log(statisticFiledNameConfigMap);
     // 常用类型: rich_text, title, date, number, [person], formula, 把常用类型判断做成utils工具吧;
-    await statisticPropertyIdMap.forEach(async (propertyIdMap, dbId) => {
-        const pages = await getDatabaseAllPages(notionClient, dbId);
-        // 取出需要统计的property name
-        const nameList = Array.from(propertyIdMap.keys());
+    await statisticPropertyIdMap.forEach(async (propertyIdMap, statisticsDBId) => {
+        const pages = await getDatabaseAllPages(notionClient, statisticsDBId);
 
         // // 找到统计源中需要统计的属性
         await Promise.all(
@@ -349,7 +350,6 @@ export async function testNotion() {
                 const taskIdName =
                     statisticFiledNameConfigMap.get(EConfigurationItem.Filed_TaskIdFiledName) || 'TaskId';
                 const taskIdProperty = page.properties[taskIdName];
-                logger.log('taskid property:\t', taskIdProperty);
                 // 如果taskId的值不存在或者是无效的uuid
                 if ('rich_text' === taskIdProperty.type) {
                     // 生成一个uuid并且更新数据库
@@ -368,55 +368,47 @@ export async function testNotion() {
                         // logger.log('taskId:\t', page.properties[taskIdName]);
                     }
                 } else {
-                    throw new UserError(`统计源数据库 ${dbId} 中, ${taskIdName}属性不存在`);
+                    throw new UserError(`统计源数据库 ${statisticsDBId} 中, ${taskIdName}属性不存在`);
                 }
-                // 信源完成时间
-                const sourceEndTime =
-                    page.properties[
-                        statisticFiledNameConfigMap.get(EConfigurationItem.Filed_InformationSourceEndTimeFiledName) ||
-                            '信源完成时间'
-                    ];
+                // 信源完成时间()
+                const sourceEndTimeFiled =
+                    statisticFiledNameConfigMap.get(EConfigurationItem.Filed_InformationSourceEndTimeFiledName) ||
+                    '信源完成时间';
+                const sourceEndTime = pageResponseStartDateToISOString(page, sourceEndTimeFiled);
+                if (!sourceEndTime) throw new UserError(`请填写 ${taskId} 任务的 ${sourceEndTimeFiled}`);
+
+                // 信源提供人
                 const sourcePersonFiled =
                     statisticFiledNameConfigMap.get(EConfigurationItem.Filed_InformationSourceFiledName) || '信源';
                 const sourcePersonList = pageResponseToPersonList(page, sourcePersonFiled);
-                if (sourcePersonList.length === 0) {
-                    throw new UserError(`请填写 ${taskId} 任务的 ${sourcePersonFiled}`);
-                }
-                const sourcePerson =
-                    page.properties[
-                        statisticFiledNameConfigMap.get(EConfigurationItem.Filed_InformationSourceFiledName) || '信源'
-                    ];
-                const points =
-                    page.properties[
-                        statisticFiledNameConfigMap.get(EConfigurationItem.Filed_TotalPointsFiledName) || '积分'
-                    ];
-                logger.log(`points: ${points}`);
-                if (sourceEndTime.type === 'date' && sourceEndTime.date?.start) {
-                    logger.log('insert information record');
+                if (!sourcePersonList.length) throw new UserError(`请填写 ${taskId} 任务的 ${sourcePersonFiled}`);
+                // 积分
+                const pointsFiled =
+                    statisticFiledNameConfigMap.get(EConfigurationItem.Filed_TotalPointsFiledName) || '积分';
+                const points = pageResponseFormulaToNumber(page, pointsFiled);
+                if (!points) throw new UserError(`请填写 ${taskId} 任务的 ${pointsFiled}`);
+
+                if (
+                    await isExistTitleInRecordDatabase(
+                        notionClient,
+                        projectDBConfig.InformationSourceRecordDBId,
+                        taskId,
+                        recordData.TaskId.name,
+                    )
+                ) {
+                    logger.log(`------------------------------------${taskId} 已经存在了`);
+                } else {
                     await insertRecordDatabaseItem(
                         notionClient,
                         projectDBConfig.InformationSourceRecordDBId,
                         taskId,
-                        dbId,
+                        statisticsDBId,
                         sourcePersonList[0],
-                        0,
-                        sourceEndTime.date.start,
-                        sourceEndTime.date.start,
+                        points,
+                        sourceEndTime,
+                        sourceEndTime,
                     );
                 }
-
-                // nameList.map((propertyName) => {
-                //     if (propertyName in page.properties) {
-                //         const propertyObj = page.properties[propertyName];
-                //         if (propertyObj.type === 'date') {
-                //             logger.log(
-                //                 `${propertyName}: {${propertyObj.date?.start} : ${propertyObj.date?.end} : ${propertyObj.date?.time_zone}}`,
-                //             );
-                //         }
-                //     } else {
-                //         throw new UserError(`配置文件中 ${propertyName} 属性名错误, 这个属性不在统计源文件中`);
-                //     }
-                // });
             }),
         );
     });

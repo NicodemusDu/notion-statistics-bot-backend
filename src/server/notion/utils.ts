@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:21:01
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-18 10:18:31
+ * @LastEditTime: 2022-10-18 15:19:43
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/utils.ts
  * @Description: notion 基本操作工具(增删改查)
  *
@@ -262,13 +262,48 @@ export function isValidUUID(uuid: string) {
     }
 }
 
+/**
+ * @description: 检查一个标题是否已经在数据库中存在了
+ * @param {Client} nocionClient
+ * @param {string} dbId
+ * @param {string} titleValue
+ * @param {string} titleName
+ * @return {*} null 不存在, string 返回找到的pageId
+ */
+export async function isExistTitleInDatabase(
+    nocionClient: Client,
+    dbId: string,
+    titleValue: string,
+    titleName: string,
+): Promise<string | null> {
+    // 检查taskID在recordDB中是否存在
+    const isExistTaskId = await notionClient.databases.query({
+        database_id: dbId,
+        filter: {
+            or: [
+                {
+                    property: titleName,
+                    title: {
+                        equals: titleValue,
+                    },
+                },
+            ],
+        },
+    });
+    let pageId = null;
+    isExistTaskId.results.map((page) => {
+        pageId = page.id;
+    });
+    return pageId;
+}
+
 /** 接收到的PropertyResponse转换为想要的类型 */
 
 /**
- * @description: 如果指定的属性名中包含person属性,就把对应的person列表返回,否则返回空列表
+ * @description: 解析PageResponse的Person属性
  * @param {PageObjectResponse} pageResponse
  * @param {string} propertyName
- * @return {*}
+ * @return {*} 如果指定的属性名中包含person属性,就把对应的person列表返回,否则返回空列表
  */
 export function pageResponseToPersonList(
     pageResponse: PageObjectResponse,
@@ -284,4 +319,50 @@ export function pageResponseToPersonList(
         });
     }
     return list;
+}
+
+/**
+ * @description: 解析PageResponse的Number属性
+ * @param {PageObjectResponse} pageResponse
+ * @param {string} propertyName
+ * @return {*} 如果指定的属性名是Number属性,就返回对应的number; 如果不是Number属性或者没有值,就返回null
+ */
+export function pageResponseToNumber(pageResponse: PageObjectResponse, propertyName: string): number | null {
+    const numObj = pageResponse.properties[propertyName];
+    if (numObj.type === 'number' && numObj.number) {
+        return numObj.number;
+    }
+    return null;
+}
+
+/**
+ * @description: 解析PageResponse的Formula(公式)属性
+ * @param {PageObjectResponse} pageResponse
+ * @param {string} propertyName
+ * @return {*} 如果指定的属性名是Formula属性,并且公式的值是Number就返回对应的number; 如果不是Number属性或者没有值,就返回null
+ */
+export function pageResponseFormulaToNumber(pageResponse: PageObjectResponse, propertyName: string): number | null {
+    const formulaObj = pageResponse.properties[propertyName];
+    if (formulaObj.type === 'formula' && formulaObj.formula.type === 'number') {
+        return formulaObj.formula.number;
+    }
+    return null;
+}
+
+/**
+ * @description:
+ * @param {PageObjectResponse} pageResponse
+ * @param {string} propertyName
+ * @return {*}
+ */
+export function pageResponseStartDateToISOString(
+    pageResponse: PageObjectResponse,
+    propertyName: string,
+): string | null {
+    const dateObj = pageResponse.properties[propertyName];
+
+    if (dateObj.type === 'date' && dateObj.date?.start) {
+        return dateObj.date.start;
+    }
+    return null;
 }

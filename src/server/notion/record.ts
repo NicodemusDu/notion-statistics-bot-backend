@@ -2,14 +2,14 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:26:36
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-17 22:16:18
+ * @LastEditTime: 2022-10-18 15:24:08
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/record.ts
  * @Description: 统计条目记录表,也是统计结果的数据源
  *
  * Copyright (c) 2022 by Nicodemus nicodemusdu@gmail.com, All Rights Reserved.
  */
 import { EDatabaseName, IRecordDatabaseModel } from './types';
-import { Client } from '@notionhq/client';
+import { Client, isFullPage } from '@notionhq/client';
 import { PersonUserObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { recordDatabaseModelData as recordData } from './data';
 
@@ -129,3 +129,58 @@ export async function insertRecordDatabaseItem(
     });
     return result;
 }
+
+/**
+ * @description: 设置记录条目中isCompleted的值
+ * @param {Client} notionClient
+ * @param {string} pageId
+ * @param {*} isCompleted
+ * @return {*}
+ */
+export async function setRecordDatabaseItemCompleted(notionClient: Client, pageId: string, isCompleted = false) {
+    try {
+        await notionClient.pages.update({
+            page_id: pageId,
+            properties: {
+                [recordData.IsStatisticsCompleted.name]: {
+                    checkbox: isCompleted,
+                },
+            },
+        });
+    } catch {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @description: 判断一个Record是否完成了统计
+ * @param {Client} notionClient
+ * @param {string} pageId
+ * @return {*} null: 没有找到这个页面
+ */
+export async function isRecordDatabaseItemCompleted(notionClient: Client, pageId: string) {
+    let propertyId = null;
+    try {
+        const page = await notionClient.pages.retrieve({ page_id: pageId });
+        if (isFullPage(page)) {
+            propertyId = page.properties[recordData.IsStatisticsCompleted.name].id;
+        } else {
+            return null;
+        }
+
+        const isCompleted = await notionClient.pages.properties.retrieve({
+            page_id: pageId,
+            property_id: propertyId,
+        });
+
+        if (isCompleted.type === 'checkbox') {
+            return isCompleted.checkbox;
+        }
+    } catch {
+        return null;
+    }
+    return null;
+}
+
+export async function updateAllRecordDatabaseFromStatisticsDatabase() {}
