@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 17:40:07
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-17 22:08:05
+ * @LastEditTime: 2022-10-18 10:31:17
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/index.ts
  * @Description:
  *
@@ -16,7 +16,15 @@ import {
     getConfigurationItemValue,
     updateConfigurationItemValue,
 } from './configuration';
-import { searchDatabase, idToString, getDatabaseAllPages, getDatabaseProperties, getUUID, isValidUUID } from './utils';
+import {
+    searchDatabase,
+    idToString,
+    getDatabaseAllPages,
+    getDatabaseProperties,
+    getUUID,
+    isValidUUID,
+    pageResponseToPersonList,
+} from './utils';
 import { EDatabaseName, EConfigurationItem, IProjectConfiguration, IBaseType, EPropertyType } from './types';
 import { UserError } from './error';
 import {
@@ -368,6 +376,12 @@ export async function testNotion() {
                         statisticFiledNameConfigMap.get(EConfigurationItem.Filed_InformationSourceEndTimeFiledName) ||
                             '信源完成时间'
                     ];
+                const sourcePersonFiled =
+                    statisticFiledNameConfigMap.get(EConfigurationItem.Filed_InformationSourceFiledName) || '信源';
+                const sourcePersonList = pageResponseToPersonList(page, sourcePersonFiled);
+                if (sourcePersonList.length === 0) {
+                    throw new UserError(`请填写 ${taskId} 任务的 ${sourcePersonFiled}`);
+                }
                 const sourcePerson =
                     page.properties[
                         statisticFiledNameConfigMap.get(EConfigurationItem.Filed_InformationSourceFiledName) || '信源'
@@ -384,17 +398,7 @@ export async function testNotion() {
                         projectDBConfig.InformationSourceRecordDBId,
                         taskId,
                         dbId,
-                        sourcePerson.type === 'people' &&
-                            'type' in sourcePerson.people[0] &&
-                            sourcePerson.people[0].type === 'person'
-                            ? sourcePerson.people[0]
-                            : ({
-                                  type: 'person',
-                                  name: 'nico',
-                                  avatar_url: '',
-                                  id: '12345',
-                                  object: 'user',
-                              } as PersonUserObjectResponse),
+                        sourcePersonList[0],
                         0,
                         sourceEndTime.date.start,
                         sourceEndTime.date.start,

@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:21:01
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-17 15:58:25
+ * @LastEditTime: 2022-10-18 10:18:31
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/utils.ts
  * @Description: notion 基本操作工具(增删改查)
  *
@@ -16,6 +16,7 @@ import {
     NumberPropertyItemObjectResponse,
     QueryDatabaseResponse,
     PageObjectResponse,
+    PersonUserObjectResponse,
 } from '@notionhq/client/build/src/api-endpoints';
 import { notionClient, logger } from '.';
 import { UserError } from './error';
@@ -239,10 +240,19 @@ function isPropertyList(propertyRes: PropertyItemObjectResponse | PropertyItemOb
     }
 }
 
+/**
+ * @description: 获取一个随机UUID
+ * @return {*}
+ */
 export function getUUID() {
     return uuidv4();
 }
 
+/**
+ * @description: 判断传进来的UUID是否有效
+ * @param {string} uuid
+ * @return {*}
+ */
 export function isValidUUID(uuid: string) {
     try {
         uuidParse(uuid);
@@ -250,4 +260,28 @@ export function isValidUUID(uuid: string) {
     } catch {
         return false;
     }
+}
+
+/** 接收到的PropertyResponse转换为想要的类型 */
+
+/**
+ * @description: 如果指定的属性名中包含person属性,就把对应的person列表返回,否则返回空列表
+ * @param {PageObjectResponse} pageResponse
+ * @param {string} propertyName
+ * @return {*}
+ */
+export function pageResponseToPersonList(
+    pageResponse: PageObjectResponse,
+    propertyName: string,
+): PersonUserObjectResponse[] {
+    const person = pageResponse.properties[propertyName];
+    const list: PersonUserObjectResponse[] = [];
+    if (person.type === 'people' && 'type' in person.people[0]) {
+        person.people.map((p) => {
+            if ('type' in p && p.type === 'person') {
+                list.push(p);
+            }
+        });
+    }
+    return list;
 }
