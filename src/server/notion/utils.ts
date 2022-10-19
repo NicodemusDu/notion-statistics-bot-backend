@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:21:01
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-18 16:10:36
+ * @LastEditTime: 2022-10-19 10:25:41
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/utils.ts
  * @Description: notion 基本操作工具(增删改查)
  *
@@ -259,6 +259,29 @@ export function isValidUUID(uuid: string) {
         return true;
     } catch {
         return false;
+    }
+}
+
+/**
+ * @description: 在一个页面中新建一个uuid
+ * @param {string} pageId
+ * @param {string} uuidFiledName uuid在页面中存储的字段名
+ * @return {*}
+ */
+export function createUUIDForPage(pageId: string, uuidFiledName: string) {
+    try {
+        const taskId = getUUID();
+        notionClient.pages.update({
+            page_id: pageId,
+            properties: {
+                [uuidFiledName]: {
+                    rich_text: [{ text: { content: taskId } }],
+                },
+            },
+        });
+        return taskId;
+    } catch {
+        return null;
     }
 }
 

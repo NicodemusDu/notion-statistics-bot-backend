@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 22:23:20
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-17 22:13:20
+ * @LastEditTime: 2022-10-19 10:01:09
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/types.ts
  * @Description:
  *
@@ -75,25 +75,6 @@ export interface IConfigurationDB {
     Value: string;
     Description: string;
     Ccategory?: string; // TODO: 以后可以用这个字段区分config类型, 简化configuration item命名
-}
-
-/**
- * @description: 存放从Configuration Database中读取的配置信息
- * @return {*}
- */
-export interface IProjectConfiguration {
-    // 这个是从parent page根据Configuration数据库名称读取的
-    ConfigurationDatabaseId: string;
-    // 统计结果展示数据库ID
-    StatisticsResultDBId: string;
-    // 每一项统计保存的数据库, 是用于统计的数据源
-    InformationSourceRecordDBId: string;
-    TranslationRecordDBId: string;
-    ProofeadRecordDBId: string;
-    BountyRecordDBId: string;
-    // 统计来源: StatisticsContribution 贡献度统计源, 统计文章翻译; StatisticsBounty 赏金统计源,统计赏金任务
-    StatisticsContributionDBIdList: string[];
-    StatisticsBountyDBIdList: string[];
 }
 
 export enum EDatabaseName {
