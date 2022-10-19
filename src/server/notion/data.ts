@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 11:42:24
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-17 22:19:07
+ * @LastEditTime: 2022-10-19 22:42:13
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/data.ts
  * @Description:
  *
@@ -41,7 +41,7 @@ export const configurationInitData: IConfigurationDB[] = [
 
     {
         Key: EConfigurationItem.StatisticsSource_ContributionDBIdList,
-        Value: 'f52c45ea79764c84b02d78bbd4139772,0f8b2217d0a94966813c79cde52e7e11',
+        Value: '5b0633ac4d634ff89dd1315e91de2635, 98d754c7037e484d8ef2ad7acb364b0e',
         Description: '填入所有想要统计工作量的列表(每个列表格式需要一致): !!!**用”,”分隔不同列表Id**!!!',
     },
     {
@@ -89,27 +89,27 @@ export const configurationInitData: IConfigurationDB[] = [
     {
         Key: EConfigurationItem.Filed_InformationSourceEndTimeFiledName,
         Value: '信源完成时间',
-        Description: '[信源完成时间]在统计源数据库中的字段名称(应该是Date类型)',
+        Description: '[信源完成时间]在统计源数据库中的字段名称(应该是Date类型, 24小时制)',
     },
     {
         Key: EConfigurationItem.Filed_TranslationStartTimeFiledName,
         Value: '翻译启动时间',
-        Description: '[翻译启动时间]在统计源数据库中的字段名称(应该是Date类型)',
+        Description: '[翻译启动时间]在统计源数据库中的字段名称(应该是Date类型, 24小时制)',
     },
     {
         Key: EConfigurationItem.Filed_TranslationEndTimeFiledName,
         Value: '翻译完成时间',
-        Description: '[翻译完成时间]在统计源数据库中的字段名称(应该是Date类型)',
+        Description: '[翻译完成时间]在统计源数据库中的字段名称(应该是Date类型, 24小时制)',
     },
     {
         Key: EConfigurationItem.Filed_ProofreadStartTimeFiledName,
         Value: '校对启动时间',
-        Description: '[校对启动时间]在统计源数据库中的字段名称(应该是Date类型)',
+        Description: '[校对启动时间]在统计源数据库中的字段名称(应该是Date类型, 24小时制)',
     },
     {
         Key: EConfigurationItem.Filed_ProofreadonEndTimeFiledName,
         Value: '校对完成时间',
-        Description: '[校对完成时间]在统计源数据库中的字段名称(应该是Date类型)',
+        Description: '[校对完成时间]在统计源数据库中的字段名称(应该是Date类型, 24小时制)',
     },
     {
         Key: EConfigurationItem.Filed_TaskIdFiledName,
@@ -131,10 +131,12 @@ export const resultDatabaseModelData: IStatisticsResultDatabaseModel = {
     InformationSource: {
         name: 'InformationSource',
         type: EPropertyType.NUMBER,
+        value: 0,
     },
     Translation: {
         name: 'Translation',
         type: EPropertyType.NUMBER,
+        value: 0,
     },
     Proofead: {
         name: 'Proofead',
@@ -143,10 +145,12 @@ export const resultDatabaseModelData: IStatisticsResultDatabaseModel = {
     Bounty: {
         name: 'Bounty',
         type: EPropertyType.NUMBER,
+        value: 0,
     },
     Points: {
         name: 'Points',
         type: EPropertyType.NUMBER,
+        value: 0,
     },
     LastUpdateDate: {
         name: 'LastUpdateDate',

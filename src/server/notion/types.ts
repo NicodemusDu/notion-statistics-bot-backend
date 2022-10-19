@@ -2,12 +2,14 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 22:23:20
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-19 10:01:09
+ * @LastEditTime: 2022-10-19 21:51:51
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/types.ts
  * @Description:
  *
  * Copyright (c) 2022 by Nicodemus nicodemusdu@gmail.com, All Rights Reserved.
  */
+import { PersonUserObjectResponse } from '@notionhq/client/build/src/api-endpoints';
+
 export interface IContributor {
     id: string;
     name: string;
@@ -134,7 +136,7 @@ export enum EResultItem {
 /**          数据库模型                */
 interface IDatabaseItem {
     name: string;
-    value?: object;
+    value?: number | string | PersonUserObjectResponse | boolean;
     type: EPropertyType;
 }
 

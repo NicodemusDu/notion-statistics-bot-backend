@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 17:40:07
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-19 11:28:26
+ * @LastEditTime: 2022-10-19 22:42:07
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/index.ts
  * @Description:
  *
@@ -23,6 +23,7 @@ import {
     getDatabaseProperties,
     getUUID,
     isValidUUID,
+    pageResponseToNumber,
     pageResponseToPersonList,
     pageResponseStartDateToISOString,
     pageResponseFormulaToNumber,
@@ -30,7 +31,14 @@ import {
     pageResponseToRichTextList,
     createUUIDForPage,
 } from './utils';
-import { EDatabaseName, EConfigurationItem, IBaseType, EPropertyType } from './types';
+import {
+    EDatabaseName,
+    EConfigurationItem,
+    IBaseType,
+    EPropertyType,
+    IStatisticsResultDatabaseModel,
+    EResultItem,
+} from './types';
 import { UserError } from './error';
 import {
     insertResultDatabaseItem,
@@ -38,12 +46,13 @@ import {
     createResultDatabase,
     createAutofillPropertyInStatisticsSource,
 } from './statistics';
-import { createRecordDatabase, insertRecordDatabaseItem } from './record';
+import { createRecordDatabase, insertRecordDatabaseItem, getRecordDBNotCompletedPages } from './record';
 
-import { recordDatabaseModelData as recordData } from './data';
+import { recordDatabaseModelData as recordData, resultDatabaseModelData as resultData } from './data';
 
 import dotenv from 'dotenv';
 import { PageObjectResponse, PersonUserObjectResponse } from '@notionhq/client/build/src/api-endpoints';
+import { info } from 'console';
 dotenv.config();
 
 // 调试信息的输出方式
@@ -585,6 +594,8 @@ export async function doOnceFOrAllTimesRecord(notionClient: Client, projectConfi
 export async function testNotion() {
     let timeRange;
     /**
+     * 常用类型: rich_text, title, date, number, [person], formula, 把常用类型判断做成utils工具吧;
+     *
      * 统计步骤:
      * 1. 筛选记录范围, 暂略
      * 2. 读取数据库中每一页id
@@ -597,6 +608,64 @@ export async function testNotion() {
      * 7. 读取所有record数据库中未完成统计的page, 把贡献信息记录到对应的贡献者身上, 并且把page标记为已完成.
      */
 
-    // 常用类型: rich_text, title, date, number, [person], formula, 把常用类型判断做成utils工具吧;
+    // Record 记录
     await doOnceFOrAllTimesRecord(notionClient, projectDBConfig);
+
+    logger.log('开始统计啦!!!!!!!!!');
+    // Statistics 统计
+    const st: {
+        [contributorId in string]: IStatisticsResultDatabaseModel;
+    } = {};
+    // 遍历Record
+    await Promise.all(
+        [
+            projectDBConfig.InformationSourceRecordDBId,
+            projectDBConfig.TranslationRecordDBId,
+            projectDBConfig.ProofeadRecordDBId,
+        ].map(async (dbId) => {
+            const pages = await getRecordDBNotCompletedPages(notionClient, dbId);
+            await Promise.all(
+                pages.map(async (page) => {
+                    const people = await pageResponseToPersonList(page, recordData.Contributor.name);
+                    const infoNum = await pageResponseToNumber(page, recordData.Points.name);
+                    if (people.length && infoNum) {
+                        const id = people[0].id;
+                        // 如果没有当前的索引值, 初始化一个
+                        if (!st[id]) {
+                            st[id] = JSON.parse(JSON.stringify(resultData)); // 深拷贝
+                            logger.log(`${id} is new value:\n`, st[id]);
+                        }
+                        (st[id].Points.value as number) += infoNum;
+                        st[id].ContributorId.value = id;
+                        st[id].Contributor.value = people[0];
+                        st[id].LastUpdateDate.value = new Date(Date.now()).toISOString();
+                        switch (dbId) {
+                            case projectDBConfig.InformationSourceRecordDBId:
+                                if (st[id].InformationSource.value) {
+                                    (st[id].InformationSource.value as number) += 1;
+                                } else {
+                                    st[id].InformationSource.value = 1;
+                                }
+                                break;
+                            case projectDBConfig.TranslationRecordDBId:
+                                if (st[id].Translation.value) {
+                                    (st[id].Translation.value as number) += 1;
+                                } else {
+                                    st[id].Translation.value = 1;
+                                }
+                                break;
+                            case projectDBConfig.ProofeadRecordDBId:
+                                if (st[id].Proofead.value) {
+                                    (st[id].Proofead.value as number) += 1;
+                                } else {
+                                    st[id].Proofead.value = 1;
+                                }
+                                break;
+                        }
+                    }
+                }),
+            );
+        }),
+    );
+    logger.log('result:\n', st);
 }

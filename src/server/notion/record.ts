@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:26:36
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-18 17:06:49
+ * @LastEditTime: 2022-10-19 17:38:58
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/record.ts
  * @Description: 统计条目记录表,也是统计结果的数据源
  *
@@ -10,7 +10,11 @@
  */
 import { EDatabaseName, IRecordDatabaseModel } from './types';
 import { Client, isFullPage } from '@notionhq/client';
-import { PersonUserObjectResponse } from '@notionhq/client/build/src/api-endpoints';
+import {
+    PersonUserObjectResponse,
+    QueryDatabaseResponse,
+    PageObjectResponse,
+} from '@notionhq/client/build/src/api-endpoints';
 import { recordDatabaseModelData as recordData } from './data';
 
 // 信息源
@@ -181,4 +185,35 @@ export async function isRecordDatabaseItemCompleted(notionClient: Client, pageId
         return null;
     }
     return null;
+}
+
+/**
+ * @description: 获取Record数据库中所有没有完成的页面
+ * @param {Client} nocionClient
+ * @param {string} databaseId
+ * @return {*}
+ */
+export async function getRecordDBNotCompletedPages(nocionClient: Client, databaseId: string) {
+    const pages = [];
+    let cursor: string | null = null;
+    do {
+        const ret = (await nocionClient.databases.query({
+            database_id: databaseId,
+            filter: {
+                or: [
+                    {
+                        property: recordData.IsStatisticsCompleted.name,
+                        checkbox: {
+                            equals: false,
+                        },
+                    },
+                ],
+            },
+            start_cursor: cursor ? cursor : undefined,
+        })) as QueryDatabaseResponse;
+
+        pages.push(...(ret.results as PageObjectResponse[]));
+        cursor = ret.next_cursor;
+    } while (cursor !== null);
+    return pages;
 }
