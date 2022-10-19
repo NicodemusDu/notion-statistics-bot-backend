@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 17:40:07
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-19 10:31:38
+ * @LastEditTime: 2022-10-19 11:28:26
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/index.ts
  * @Description:
  *
@@ -58,6 +58,10 @@ interface IProjectConfiguration {
     ConfigurationDatabaseId: string;
     // 统计结果展示数据库ID
     StatisticsResultDBId: string;
+    // 各项占总积分的百分比0 ~ 100
+    InformationSourcePointRatio: number;
+    TranslationPointRatio: number;
+    ProofeadPointRatio: number;
     // 每一项统计保存的数据库, 是用于统计的数据源
     InformationSourceRecordDBId: string;
     TranslationRecordDBId: string;
@@ -74,10 +78,16 @@ const projectDBConfig: IProjectConfiguration = {
     ConfigurationDatabaseId: '',
 
     StatisticsResultDBId: '',
+
+    InformationSourcePointRatio: 0,
+    TranslationPointRatio: 0,
+    ProofeadPointRatio: 0,
+
     InformationSourceRecordDBId: '',
     TranslationRecordDBId: '',
     ProofeadRecordDBId: '',
     BountyRecordDBId: '',
+
     StatisticsContributionDBIdList: [],
     StatisticsBountyDBIdList: [],
     statisticFiledNameConfigMap: new Map<string, string>(),
@@ -266,6 +276,31 @@ export async function initNotionStatistics(_logger: Logger) {
         // TODO:暂时忽略Bounty的缺失,以后再考虑
     }
 
+    // 读取各项占总积分的百分比
+    const infoRatio = await getConfigurationItemValue(
+        notionClient,
+        configurationId,
+        EConfigurationItem.PointRatio_InformationSource,
+    );
+    const transRatio = await getConfigurationItemValue(
+        notionClient,
+        configurationId,
+        EConfigurationItem.PointRatio_TranslationPointRatio,
+    );
+    const proofeadRatio = await getConfigurationItemValue(
+        notionClient,
+        configurationId,
+        EConfigurationItem.PointRatio_ProofreadRatio,
+    );
+
+    if (infoRatio && transRatio && proofeadRatio) {
+        projectDBConfig.InformationSourcePointRatio = parseInt(infoRatio);
+        projectDBConfig.TranslationPointRatio = parseInt(transRatio);
+        projectDBConfig.ProofeadPointRatio = parseInt(proofeadRatio);
+    } else {
+        throw new UserError(`请在Configuration数据库中填写积分分配比例, 否则无法正常统计`);
+    }
+
     projectDBConfig.ConfigurationDatabaseId = configurationId;
     projectDBConfig.StatisticsResultDBId = resultId;
     projectDBConfig.InformationSourceRecordDBId = sourceRecordId;
@@ -354,6 +389,7 @@ export async function saveToRecordDBFromPageObject({
     startTimeFiledName,
     endTimeFiledName,
     pointsFiledName,
+    pointsRatio,
     recordDBId,
 }: {
     page: PageObjectResponse;
@@ -363,6 +399,7 @@ export async function saveToRecordDBFromPageObject({
     startTimeFiledName: string;
     endTimeFiledName: string;
     pointsFiledName: string;
+    pointsRatio: number;
     recordDBId: string;
 }) {
     // 完成时间
@@ -372,8 +409,8 @@ export async function saveToRecordDBFromPageObject({
     const contributorList = pageResponseToPersonList(page, contributorFiledName);
     if (!contributorList.length) throw new UserError(`请填写 ${taskId} 任务的 ${contributorFiledName}`);
     // 积分
-    const points = pageResponseFormulaToNumber(page, pointsFiledName);
-    if (!points) throw new UserError(`请填写 ${taskId} 任务的 ${pointsFiledName}`);
+    const totalPoints = pageResponseFormulaToNumber(page, pointsFiledName);
+    if (!totalPoints) throw new UserError(`请填写 ${taskId} 任务的 ${pointsFiledName}`);
     // 开始时间
     const startTime = pageResponseStartDateToISOString(page, startTimeFiledName);
     if (!startTime) throw new UserError(`请填写 ${taskId} 任务的 ${startTimeFiledName}`);
@@ -385,7 +422,7 @@ export async function saveToRecordDBFromPageObject({
         taskId,
         statisticsDBId,
         contributorList[0],
-        points,
+        (totalPoints * pointsRatio) / 100,
         startTime,
         endTime,
     );
@@ -447,6 +484,7 @@ export async function doOnceFOrAllTimesRecord(notionClient: Client, projectConfi
                                     projectConfig.statisticFiledNameConfigMap.get(
                                         EConfigurationItem.Filed_TotalPointsFiledName,
                                     ) || '积分',
+                                pointsRatio: projectConfig.InformationSourcePointRatio,
                                 recordDBId: projectConfig.InformationSourceRecordDBId,
                             });
                         } catch (err) {
@@ -486,6 +524,7 @@ export async function doOnceFOrAllTimesRecord(notionClient: Client, projectConfi
                                     projectConfig.statisticFiledNameConfigMap.get(
                                         EConfigurationItem.Filed_TotalPointsFiledName,
                                     ) || '积分',
+                                pointsRatio: projectConfig.TranslationPointRatio,
                                 recordDBId: projectConfig.TranslationRecordDBId,
                             });
                         } catch (err) {
@@ -525,6 +564,7 @@ export async function doOnceFOrAllTimesRecord(notionClient: Client, projectConfi
                                     projectConfig.statisticFiledNameConfigMap.get(
                                         EConfigurationItem.Filed_TotalPointsFiledName,
                                     ) || '积分',
+                                pointsRatio: projectConfig.ProofeadPointRatio,
                                 recordDBId: projectConfig.ProofeadRecordDBId,
                             });
                         } catch (err) {
@@ -554,8 +594,7 @@ export async function testNotion() {
      *
      *
      * 6. 筛选统计范围, 暂略
-     * 7. 在内存中创建贡献者列表, 读取所有record数据库, 把贡献信息记录到对应的贡献者身上
-     * 8. 把内存中的统计结果更新到数据库中
+     * 7. 读取所有record数据库中未完成统计的page, 把贡献信息记录到对应的贡献者身上, 并且把page标记为已完成.
      */
 
     // 常用类型: rich_text, title, date, number, [person], formula, 把常用类型判断做成utils工具吧;
