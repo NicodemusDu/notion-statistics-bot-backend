@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 17:40:07
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-20 15:15:53
+ * @LastEditTime: 2022-10-20 16:04:41
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/index.ts
  * @Description:
  *
@@ -30,6 +30,8 @@ import {
     isExistTitleInRecordDatabase,
     pageResponseToRichTextList,
     createUUIDForPage,
+    isBeforeDay,
+    isAfterDay,
 } from './utils';
 import { EDatabaseName, EConfigurationItem, IBaseType, EPropertyType, IStatisticsResultDatabaseModel } from './types';
 import { UserError } from './error';
@@ -52,8 +54,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 import { PageObjectResponse, PersonUserObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import dayjs from 'dayjs';
-import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-dayjs.extend(isSameOrBefore);
 
 // 调试信息的输出方式
 export let logger: Logger;
@@ -592,7 +592,6 @@ export async function doOnceFOrAllTimesRecord(notionClient: Client, projectConfi
 // export async function doOnceForTimerangeStatistics() {}
 
 export async function testNotion() {
-    let timeRange;
     /**
      * 常用类型: rich_text, title, date, number, [person], formula, 把常用类型判断做成utils工具吧;
      *
@@ -642,10 +641,8 @@ export async function testNotion() {
                         // 保存贡献者的页面ID
                         if (contributorPageId[id]) {
                             contributorPageId[id].push(page.id);
-                            logger.log(`add contributorPageId:${id} , pageId:${page.id}`);
                         } else {
                             contributorPageId[id] = [page.id];
-                            logger.log(`new contributorPageId:${id} , pageId:${page.id}`);
                         }
                         // 如果没有当前的索引值, 初始化一个
                         if (!st[id]) {
@@ -704,15 +701,13 @@ export async function testNotion() {
                         isExist.results[0],
                         resultData.LastUpdateDate.name,
                     );
-                    const today = dayjs();
-                    const lastDate = dayjs(lastDataByDB);
-                    if (
-                        lastDate.year() < today.year() ||
-                        (lastDate.year() <= today.year() && lastDate.month() < today.month()) ||
-                        (lastDate.year() <= today.year() &&
-                            lastDate.month() <= today.month() &&
-                            lastDate.day() < today.day())
-                    ) {
+                    logger.log(
+                        `LastUpdateDate: ${dayjs(lastDataByDB).toDate()}, is ${isBeforeDay(
+                            dayjs(lastDataByDB).toDate(),
+                            new Date(),
+                        )}`,
+                    );
+                    if (isBeforeDay(dayjs(lastDataByDB).toDate(), new Date())) {
                         // 如果当前贡献者的记录发生了更新, 就记录下来贡献者的id
                         const cId = pageResponseToRichTextList(isExist.results[0], resultData.ContributorId.name);
                         cId && cId.length && updatedContributorIdList.push(cId[0]);

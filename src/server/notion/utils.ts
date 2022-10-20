@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:21:01
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-20 14:39:20
+ * @LastEditTime: 2022-10-20 16:06:10
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/utils.ts
  * @Description: notion 基本操作工具(增删改查)
  *
@@ -23,6 +23,7 @@ import { notionClient, logger } from '.';
 import { UserError } from './error';
 import { IContributor } from './types';
 import { v4 as uuidv4, parse as uuidParse } from 'uuid';
+import dayjs from 'dayjs';
 /**
  * @description: 查找名称为dbName的数据库, 如果想查找所有数据库,就不要给dbName赋值
  * @param {Client} notionClient
@@ -413,4 +414,35 @@ export function pageResponseStartDateToISOString(
         return dateObj.date.start;
     }
     return null;
+}
+
+/**
+ * @description: 只计算年月日,十分妙忽略
+ * @param {Date} source
+ * @param {Date} target
+ * @return {*}  if source.day < target.day return true ; else return false
+ */
+export function isBeforeDay(source: Date, target: Date) {
+    const sourceDay = dayjs(source);
+    const targetDay = dayjs(target);
+    if (
+        sourceDay.year() < targetDay.year() ||
+        (sourceDay.year() <= targetDay.year() && sourceDay.month() < targetDay.month()) ||
+        (sourceDay.year() <= targetDay.year() &&
+            sourceDay.month() <= targetDay.month() &&
+            sourceDay.day() < targetDay.day())
+    ) {
+        return true;
+    } else {
+        return false;
+    }
+}
+/**
+ * @description: 只计算年月日,十分妙忽略
+ * @param {Date} source
+ * @param {Date} target
+ * @return {*}  if source.day > target.day return true ; else return false
+ */
+export function isAfterDay(source: Date, target: Date) {
+    return isBeforeDay(target, source);
 }
