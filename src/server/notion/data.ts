@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 11:42:24
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-20 17:35:41
+ * @LastEditTime: 2022-10-20 18:05:22
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/data.ts
  * @Description:
  *
@@ -126,6 +126,12 @@ export const configurationInitData: IConfigurationDB[] = [
         Value: '唯一标识',
         Description:
             '[TaskId]在统计源数据库中的字段名称(应该是rich_text类型,作为这条任务的唯一标识,不管移动到哪个数据库中都不变)',
+    },
+    {
+        Key: EConfigurationItem.Filed_StatusFiledName,
+        Value: '状态',
+        Description:
+            '[状态]在统计源数据库中的字段名称(应该是select类型,options分别为[待翻译, 翻译中, 待校对, 校对中, 已校完, 待发布, 已发布])',
     },
 ];
 

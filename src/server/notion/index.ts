@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 17:40:07
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-20 17:58:47
+ * @LastEditTime: 2022-10-20 20:19:16
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/index.ts
  * @Description:
  *
@@ -365,14 +365,19 @@ export async function initNotionStatistics(_logger: Logger) {
         EConfigurationItem.Filed_ProofreadStartTimeFiledName,
         EConfigurationItem.Filed_ProofreadonEndTimeFiledName,
         EConfigurationItem.Filed_TaskIdFiledName,
+        EConfigurationItem.Filed_StatusFiledName,
     ];
     // 从数据库读取字段
     await Promise.all(
         filedParameterNameList.map(async (filedName) => {
             // 没有做异常捕获,出错直接报错吧
-            logger.log(`initNotionStatistics:\t init ${filedName} Filed Name`);
             const result = await getFiledNameFromConfigurationDB(notionClient, configurationId, filedName);
             projectDBConfig.statisticFiledNameConfigMap.set(filedName, result);
+            logger.log(
+                `initNotionStatistics:\t init ${filedName} : ${projectDBConfig.statisticFiledNameConfigMap.get(
+                    filedName,
+                )}`,
+            );
         }),
     );
 
@@ -447,16 +452,20 @@ export async function saveToRecordDBFromPageObject({
 }) {
     // 完成时间
     const endTime = pageResponseStartDateToISOString(page, endTimeFiledName);
-    if (!endTime) throw new UserError(`请填写 ${taskId} 任务的 ${endTimeFiledName}`);
+    // if (!endTime) throw new UserError(`请填写 ${taskId} 任务的 ${endTimeFiledName}`);
+    if (!endTime) return;
     // 贡献者
     const contributorList = pageResponseToPersonList(page, contributorFiledName);
-    if (!contributorList.length) throw new UserError(`请填写 ${taskId} 任务的 ${contributorFiledName}`);
+    // if (!contributorList.length) throw new UserError(`请填写 ${taskId} 任务的 ${contributorFiledName}`);
+    if (!contributorList.length) return;
     // 积分
     const totalPoints = pageResponseFormulaToNumber(page, pointsFiledName);
-    if (!totalPoints) throw new UserError(`请填写 ${taskId} 任务的 ${pointsFiledName}`);
+    // if (!totalPoints) throw new UserError(`请填写 ${taskId} 任务的 ${pointsFiledName}`);
+    if (!totalPoints) return;
     // 开始时间
     const startTime = pageResponseStartDateToISOString(page, startTimeFiledName);
-    if (!startTime) throw new UserError(`请填写 ${taskId} 任务的 ${startTimeFiledName}`);
+    // if (!startTime) throw new UserError(`请填写 ${taskId} 任务的 ${startTimeFiledName}`);
+    if (!startTime) return;
 
     // 记录信息到数据库
     await insertRecordDatabaseItem(
@@ -537,8 +546,10 @@ export async function doOnceRecordAllTheTime(notionClient: Client, projectConfig
                                 pointsRatio: projectConfig.InformationSourcePointRatio,
                                 recordDBId: projectConfig.InformationSourceRecordDBId,
                             });
-                        } catch (err) {
-                            logger.log(err);
+                            // } catch (err) {
+                            //     logger.log(err);
+                        } catch {
+                            // 暂时不报错
                         }
                     }
                     // 翻译贡献记录
@@ -627,7 +638,63 @@ export async function doOnceRecordAllTheTime(notionClient: Client, projectConfig
         }),
     );
 }
+export async function doOnceStatusCounter(notionClient: Client, projectConfig: IProjectConfiguration) {
+    const status = projectConfig.statisticFiledNameConfigMap.get(EConfigurationItem.Filed_StatusFiledName);
+    // const filedName = status || '状态';
+    const filedName = '状态';
 
+    const dbRetrieve = await notionClient.databases.retrieve({
+        database_id: projectConfig.StatisticsContributionDBIdList[0],
+    });
+    const options: {
+        [option in string]: number;
+    } = {};
+    if (
+        isFullDatabase(dbRetrieve) &&
+        dbRetrieve.properties[filedName] &&
+        dbRetrieve.properties[filedName].type === 'select'
+    ) {
+        dbRetrieve.properties[filedName].select.options.map((opt) => {
+            options[opt.name] = 0;
+        });
+    } else {
+        logger.error(`配置表中分类统计字段不是select类型`);
+    }
+
+    await Promise.all(
+        projectConfig.StatisticsContributionDBIdList.map(async (dbId) => {
+            await Promise.all(
+                Object.keys(options).map(async (opt) => {
+                    const waitTrans = await notionClient.databases.query({
+                        database_id: dbId,
+                        filter: {
+                            or: [
+                                {
+                                    property: filedName,
+                                    select: {
+                                        equals: opt,
+                                    },
+                                },
+                            ],
+                        },
+                    });
+                    await Promise.all(
+                        waitTrans.results.map(async () => {
+                            options[opt]++;
+                        }),
+                    );
+                }),
+            );
+        }),
+    );
+    await Promise.all(
+        Object.keys(options).map(async (opt) => {
+            await updateStatusResultDatabaseItem(notionClient, projectConfig.StatusResultDBId, opt, options[opt]);
+
+            logger.log(`${opt}: ${options[opt]}`);
+        }),
+    );
+}
 export async function doOnceStatisticsBeforToday(notionClient: Client, projectConfig: IProjectConfiguration) {
     logger.log('开始统计啦!!!!!!!!!');
     // Statistics 统计
@@ -722,8 +789,7 @@ export async function doOnceStatisticsBeforToday(notionClient: Client, projectCo
                     );
                     if (isBeforeDay(dayjs(lastDataByDB).toDate(), new Date())) {
                         // 如果当前贡献者的记录发生了更新, 就记录下来贡献者的id
-                        const cId = pageResponseToRichTextList(isExist.results[0], resultData.ContributorId.name);
-                        cId && cId.length && updatedContributorIdList.push(cId[0]);
+                        updatedContributorIdList.push(contributorId);
                         // 获取要更新的页面id
                         const pageId = isExist.results[0].id;
                         // 更新贡献者页面
@@ -741,6 +807,8 @@ export async function doOnceStatisticsBeforToday(notionClient: Client, projectCo
                 }
                 logger.log(`${contributorId} is exist`);
             } else {
+                // 如果当前贡献者的记录发生了更新, 就记录下来贡献者的id
+                updatedContributorIdList.push(contributorId);
                 // 如果之前没有记录过贡献, 就新建一个记录
                 await insertStatisticsResultDatabaseItem(
                     notionClient,
@@ -795,57 +863,10 @@ export async function testNotion() {
      * 7. 读取所有record数据库中未完成统计的page, 把贡献信息记录到对应的贡献者身上, 并且把page标记为已完成.
      */
 
-    // Record 记录
-    // await doOnceRecordAllTheTime(notionClient, projectDBConfig);
-
-    // await doOnceStatisticsBeforToday(notionClient, projectDBConfig);
-    const filedName = '状态';
-    const dbRetrieve = await notionClient.databases.retrieve({
-        database_id: projectDBConfig.StatisticsContributionDBIdList[0],
-    });
-    const options: {
-        [option in string]: number;
-    } = {};
-    if (isFullDatabase(dbRetrieve) && dbRetrieve.properties[filedName].type === 'select') {
-        dbRetrieve.properties[filedName].select.options.map((opt) => {
-            options[opt.name] = 0;
-        });
-    } else {
-        logger.error(`配置表中分类统计字段不是select类型`);
-    }
-    logger.log(options);
-
-    await Promise.all(
-        projectDBConfig.StatisticsContributionDBIdList.map(async (dbId) => {
-            await Promise.all(
-                Object.keys(options).map(async (opt) => {
-                    const waitTrans = await notionClient.databases.query({
-                        database_id: dbId,
-                        filter: {
-                            or: [
-                                {
-                                    property: filedName,
-                                    select: {
-                                        equals: opt,
-                                    },
-                                },
-                            ],
-                        },
-                    });
-                    await Promise.all(
-                        waitTrans.results.map(async () => {
-                            options[opt]++;
-                        }),
-                    );
-                }),
-            );
-        }),
-    );
-    await Promise.all(
-        Object.keys(options).map(async (opt) => {
-            await updateStatusResultDatabaseItem(notionClient, projectDBConfig.StatusResultDBId, opt, options[opt]);
-
-            logger.log(`${opt}: ${options[opt]}`);
-        }),
-    );
+    // 记录
+    await doOnceRecordAllTheTime(notionClient, projectDBConfig);
+    // 统计
+    await doOnceStatisticsBeforToday(notionClient, projectDBConfig);
+    // 分类
+    await doOnceStatusCounter(notionClient, projectDBConfig);
 }

@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:25:08
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-20 18:00:20
+ * @LastEditTime: 2022-10-20 19:20:51
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/statistics.ts
  * @Description: 统计过程的相关操作和统计结果的数据库操作
  *
@@ -10,7 +10,7 @@
  */
 import { Client, isFullPage } from '@notionhq/client';
 import { PersonUserObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { IMember, EPropertyType, EDatabaseName, EConfigurationItem } from './types';
+import { IMember, EPropertyType, EDatabaseName, EConfigurationItem, EStatusType } from './types';
 import {
     statisticsResultDatabaseModelData as statisticsData,
     statusResultDatabaseModelData as statusData,
@@ -351,6 +351,20 @@ export async function createAutofillPropertyInStatisticsSource(
                 [propertyIdMap.get(EConfigurationItem.Filed_TaskIdFiledName) as string]: {
                     type: 'rich_text',
                     rich_text: {},
+                },
+                [propertyIdMap.get(EConfigurationItem.Filed_StatusFiledName) as string]: {
+                    type: 'select',
+                    select: {
+                        options: [
+                            { name: EStatusType.WaitTranslation },
+                            { name: EStatusType.InTranslation },
+                            { name: EStatusType.WaitProofread },
+                            { name: EStatusType.InProofead },
+                            { name: EStatusType.FinishedProofead },
+                            { name: EStatusType.WaitRelease },
+                            { name: EStatusType.FinishedRelease },
+                        ],
+                    },
                 },
             },
         });
