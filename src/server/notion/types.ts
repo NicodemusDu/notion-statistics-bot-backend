@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 22:23:20
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-20 11:17:28
+ * @LastEditTime: 2022-10-20 17:39:48
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/types.ts
  * @Description:
  *
@@ -81,7 +81,9 @@ export interface IConfigurationDB {
 
 export enum EDatabaseName {
     // 统计结果
-    ResultDBName = 'StatisticsResultDB',
+    StatisticsResultDBName = 'StatisticsResultDB',
+    // 各种状态下任务数量统计
+    StatusResultDBName = 'StatusResultDBName',
     // 配置文件
     ConfigDBName = 'ConfigurationDB',
     // 信源结算列表
@@ -99,7 +101,8 @@ export enum EDatabaseName {
  * @return {*}
  */
 export enum EConfigurationItem {
-    Auto_ResultDBId = 'Auto_ResultDBId',
+    Auto_StatisticsResultDBId = 'Auto_StatisticsResultDBId',
+    Auto_StatusResultDBId = 'Auto_StatusResultDBId',
     Auto_InformationSourceRecordDBId = 'Auto_InformationSourceRecordDBId',
     Auto_TranslationRecordDBId = 'Auto_TranslationRecordDBId',
     Auto_ProofeadRecordDBId = 'Auto_ProofeadRecordDBId',
@@ -150,5 +153,11 @@ export interface IStatisticsResultDatabaseModel {
     Proofead: IDatabaseItem;
     Bounty: IDatabaseItem;
     Points: IDatabaseItem;
+    LastUpdateDate: IDatabaseItem;
+}
+
+export interface IStatusResultDatabaseModel {
+    Status: IDatabaseItem;
+    Counter: IDatabaseItem;
     LastUpdateDate: IDatabaseItem;
 }

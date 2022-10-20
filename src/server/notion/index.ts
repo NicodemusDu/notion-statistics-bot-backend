@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 17:40:07
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-20 17:19:52
+ * @LastEditTime: 2022-10-20 17:58:47
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/index.ts
  * @Description:
  *
@@ -36,10 +36,12 @@ import {
 import { EDatabaseName, EConfigurationItem, IBaseType, EPropertyType, IStatisticsResultDatabaseModel } from './types';
 import { UserError } from './error';
 import {
-    insertResultDatabaseItem,
-    increaseResultDatabaseItem,
-    createResultDatabase,
+    insertStatisticsResultDatabaseItem,
+    increaseStatisticsResultDatabaseItem,
+    createStatisticsResultDatabase,
     createAutofillPropertyInStatisticsSource,
+    createStatusResultDatabase,
+    updateStatusResultDatabaseItem,
 } from './statistics';
 import {
     createRecordDatabase,
@@ -48,7 +50,7 @@ import {
     setRecordDatabaseItemCompleted,
 } from './record';
 
-import { recordDatabaseModelData as recordData, resultDatabaseModelData as resultData } from './data';
+import { recordDatabaseModelData as recordData, statisticsResultDatabaseModelData as resultData } from './data';
 
 import dotenv from 'dotenv';
 dotenv.config();
@@ -67,6 +69,8 @@ interface IProjectConfiguration {
     ConfigurationDatabaseId: string;
     // 统计结果展示数据库ID
     StatisticsResultDBId: string;
+    // 统计各种状态下任务数量的数据库ID
+    StatusResultDBId: string;
     // 各项占总积分的百分比0 ~ 100
     InformationSourcePointRatio: number;
     TranslationPointRatio: number;
@@ -87,6 +91,7 @@ export const projectDBConfig: IProjectConfiguration = {
     ConfigurationDatabaseId: '',
 
     StatisticsResultDBId: '',
+    StatusResultDBId: '',
 
     InformationSourcePointRatio: 0,
     TranslationPointRatio: 0,
@@ -145,22 +150,47 @@ async function getOrCreateConfigurationDB(notion: Client, parentPageId: string) 
  */
 async function getOrCreateStatisticsResultDB(notion: Client, configurationDBId: string) {
     // 在配置数据库中查找Result统计结果数据库的id
-    let resultId = await getConfigurationItemValue(notionClient, configurationDBId, EConfigurationItem.Auto_ResultDBId);
+    let resultId = await getConfigurationItemValue(
+        notionClient,
+        configurationDBId,
+        EConfigurationItem.Auto_StatisticsResultDBId,
+    );
 
     // 如果当前configuration数据库中不存在resultId,就去创建一个
     if (!resultId) {
-        resultId = await createResultDatabase(notionClient, parentPageId);
+        resultId = await createStatisticsResultDatabase(notionClient, parentPageId);
         // 把新创建的resultId写入到configuration数据库中
         await updateConfigurationItemValue(
             notionClient,
             configurationDBId,
-            EConfigurationItem.Auto_ResultDBId,
+            EConfigurationItem.Auto_StatisticsResultDBId,
             idToString(resultId),
         );
     }
     return resultId;
 }
 
+async function getOrCreateStatusResultDB(notion: Client, configurationDBId: string) {
+    // 在配置数据库中查找Result统计结果数据库的id
+    let resultId = await getConfigurationItemValue(
+        notionClient,
+        configurationDBId,
+        EConfigurationItem.Auto_StatusResultDBId,
+    );
+
+    // 如果当前configuration数据库中不存在resultId,就去创建一个
+    if (!resultId) {
+        resultId = await createStatusResultDatabase(notionClient, parentPageId);
+        // 把新创建的resultId写入到configuration数据库中
+        await updateConfigurationItemValue(
+            notionClient,
+            configurationDBId,
+            EConfigurationItem.Auto_StatusResultDBId,
+            idToString(resultId),
+        );
+    }
+    return resultId;
+}
 /**
  * @description: 从configurationDBId数据库读取存储贡献度记录的recordDBName数据库Id,如果当前不存在这个数据库,就创建一个.
  * @param {Client} notion
@@ -238,7 +268,10 @@ export async function initNotionStatistics(_logger: Logger) {
     logger.log('initNotionStatistics:\t', 'init configuration database');
     const configurationId = await getOrCreateConfigurationDB(notionClient, parentPageId);
     logger.log('initNotionStatistics:\t', 'init statistics result database');
-    const resultId = await getOrCreateStatisticsResultDB(notionClient, configurationId);
+    const statisticsResultId = await getOrCreateStatisticsResultDB(notionClient, configurationId);
+    logger.log('initNotionStatistics:\t', 'init status result database');
+    const statusResultId = await getOrCreateStatusResultDB(notionClient, configurationId);
+
     logger.log('initNotionStatistics:\t', 'init information source record database');
     const sourceRecordId = await getOrCreateRecordDB(
         notionClient,
@@ -311,7 +344,8 @@ export async function initNotionStatistics(_logger: Logger) {
     }
 
     projectDBConfig.ConfigurationDatabaseId = configurationId;
-    projectDBConfig.StatisticsResultDBId = resultId;
+    projectDBConfig.StatisticsResultDBId = statisticsResultId;
+    projectDBConfig.StatusResultDBId = statusResultId;
     projectDBConfig.InformationSourceRecordDBId = sourceRecordId;
     projectDBConfig.TranslationRecordDBId = transRecordId;
     projectDBConfig.ProofeadRecordDBId = proofeadRecordId;
@@ -693,7 +727,7 @@ export async function doOnceStatisticsBeforToday(notionClient: Client, projectCo
                         // 获取要更新的页面id
                         const pageId = isExist.results[0].id;
                         // 更新贡献者页面
-                        await increaseResultDatabaseItem(
+                        await increaseStatisticsResultDatabaseItem(
                             notionClient,
                             pageId,
                             contributorId,
@@ -708,7 +742,7 @@ export async function doOnceStatisticsBeforToday(notionClient: Client, projectCo
                 logger.log(`${contributorId} is exist`);
             } else {
                 // 如果之前没有记录过贡献, 就新建一个记录
-                await insertResultDatabaseItem(
+                await insertStatisticsResultDatabaseItem(
                     notionClient,
                     projectConfig.StatisticsResultDBId,
                     st[contributorId].Contributor.value as PersonUserObjectResponse,
@@ -807,7 +841,11 @@ export async function testNotion() {
             );
         }),
     );
-    Object.keys(options).map(async (opt) => {
-        logger.log(`${opt}: ${options[opt]}`);
-    });
+    await Promise.all(
+        Object.keys(options).map(async (opt) => {
+            await updateStatusResultDatabaseItem(notionClient, projectDBConfig.StatusResultDBId, opt, options[opt]);
+
+            logger.log(`${opt}: ${options[opt]}`);
+        }),
+    );
 }

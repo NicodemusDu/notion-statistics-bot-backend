@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:25:08
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-20 12:07:52
+ * @LastEditTime: 2022-10-20 18:00:20
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/statistics.ts
  * @Description: 统计过程的相关操作和统计结果的数据库操作
  *
@@ -11,46 +11,49 @@
 import { Client, isFullPage } from '@notionhq/client';
 import { PersonUserObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { IMember, EPropertyType, EDatabaseName, EConfigurationItem } from './types';
-import { resultDatabaseModelData } from './data';
+import {
+    statisticsResultDatabaseModelData as statisticsData,
+    statusResultDatabaseModelData as statusData,
+} from './data';
 import { Logger } from 'tsrpc';
 import { UserError } from './error';
 import { getNumberPropertyValue, hasPropertyInDatabase } from './utils';
 
-export async function createResultDatabase(notionClient: Client, parentId: string) {
+export async function createStatisticsResultDatabase(notionClient: Client, parentId: string) {
     const newDB = await notionClient.databases.create({
-        title: [{ text: { content: EDatabaseName.ResultDBName } }],
+        title: [{ text: { content: EDatabaseName.StatisticsResultDBName } }],
         description: [{ text: { content: '用于存放统计结果' } }],
         parent: { page_id: parentId, type: 'page_id' },
         properties: {
-            [resultDatabaseModelData.ContributorId.name]: {
+            [statisticsData.ContributorId.name]: {
                 type: 'title',
                 title: {},
             },
-            [resultDatabaseModelData.Contributor.name]: {
+            [statisticsData.Contributor.name]: {
                 type: 'people',
                 people: {},
             },
-            [resultDatabaseModelData.InformationSource.name]: {
+            [statisticsData.InformationSource.name]: {
                 type: 'number',
                 number: { format: 'number' },
             },
-            [resultDatabaseModelData.Translation.name]: {
+            [statisticsData.Translation.name]: {
                 type: 'number',
                 number: { format: 'number' },
             },
-            [resultDatabaseModelData.Proofead.name]: {
+            [statisticsData.Proofead.name]: {
                 type: 'number',
                 number: { format: 'number' },
             },
-            [resultDatabaseModelData.Bounty.name]: {
+            [statisticsData.Bounty.name]: {
                 type: 'number',
                 number: { format: 'number' },
             },
-            [resultDatabaseModelData.Points.name]: {
+            [statisticsData.Points.name]: {
                 type: 'number',
                 number: { format: 'number' },
             },
-            [resultDatabaseModelData.LastUpdateDate.name]: {
+            [statisticsData.LastUpdateDate.name]: {
                 type: 'date',
                 date: {},
             },
@@ -59,7 +62,7 @@ export async function createResultDatabase(notionClient: Client, parentId: strin
     return newDB.id;
 }
 
-export async function insertResultDatabaseItem(
+export async function insertStatisticsResultDatabaseItem(
     notionClient: Client,
     resultDBId: string,
     contributor: PersonUserObjectResponse,
@@ -74,28 +77,28 @@ export async function insertResultDatabaseItem(
             database_id: resultDBId,
         },
         properties: {
-            [resultDatabaseModelData.ContributorId.name]: {
+            [statisticsData.ContributorId.name]: {
                 title: [{ text: { content: contributor.id } }],
             },
-            [resultDatabaseModelData.Contributor.name]: {
+            [statisticsData.Contributor.name]: {
                 people: [contributor],
             },
-            [resultDatabaseModelData.InformationSource.name]: {
+            [statisticsData.InformationSource.name]: {
                 number: source,
             },
-            [resultDatabaseModelData.Translation.name]: {
+            [statisticsData.Translation.name]: {
                 number: translation,
             },
-            [resultDatabaseModelData.Proofead.name]: {
+            [statisticsData.Proofead.name]: {
                 number: proofead,
             },
-            [resultDatabaseModelData.Bounty.name]: {
+            [statisticsData.Bounty.name]: {
                 number: bounty,
             },
-            [resultDatabaseModelData.Points.name]: {
+            [statisticsData.Points.name]: {
                 number: points,
             },
-            [resultDatabaseModelData.LastUpdateDate.name]: {
+            [statisticsData.LastUpdateDate.name]: {
                 date: { start: new Date(Date.now()).toISOString() },
             },
         },
@@ -107,7 +110,7 @@ export async function insertResultDatabaseItem(
  * @description: 在当前数值的基础上增加对应的值, 不变的写入0
  * @return {*}
  */
-export async function increaseResultDatabaseItem(
+export async function increaseStatisticsResultDatabaseItem(
     notionClient: Client,
     itemPageId: string,
     contributorId: string,
@@ -125,27 +128,27 @@ export async function increaseResultDatabaseItem(
         const currentSource = await getNumberPropertyValue(
             notionClient,
             itemPageId,
-            current.properties[resultDatabaseModelData.InformationSource.name].id,
+            current.properties[statisticsData.InformationSource.name].id,
         );
         const currentTranslation = await getNumberPropertyValue(
             notionClient,
             itemPageId,
-            current.properties[resultDatabaseModelData.Translation.name].id,
+            current.properties[statisticsData.Translation.name].id,
         );
         const currentProofead = await getNumberPropertyValue(
             notionClient,
             itemPageId,
-            current.properties[resultDatabaseModelData.Proofead.name].id,
+            current.properties[statisticsData.Proofead.name].id,
         );
         const currentBoundy = await getNumberPropertyValue(
             notionClient,
             itemPageId,
-            current.properties[resultDatabaseModelData.Bounty.name].id,
+            current.properties[statisticsData.Bounty.name].id,
         );
         const currentPoints = await getNumberPropertyValue(
             notionClient,
             itemPageId,
-            current.properties[resultDatabaseModelData.Points.name].id,
+            current.properties[statisticsData.Points.name].id,
         );
 
         if (
@@ -162,28 +165,124 @@ export async function increaseResultDatabaseItem(
         await notionClient.pages.update({
             page_id: itemPageId,
             properties: {
-                [resultDatabaseModelData.InformationSource.name as string]: {
+                [statisticsData.InformationSource.name as string]: {
                     number: source + currentSource,
                 },
-                [resultDatabaseModelData.Translation.name as string]: {
+                [statisticsData.Translation.name as string]: {
                     number: translation + currentTranslation,
                 },
-                [resultDatabaseModelData.Proofead.name as string]: {
+                [statisticsData.Proofead.name as string]: {
                     number: proofead + currentProofead,
                 },
-                [resultDatabaseModelData.Bounty.name as string]: {
+                [statisticsData.Bounty.name as string]: {
                     number: bounty + currentBoundy,
                 },
-                [resultDatabaseModelData.Points.name as string]: {
+                [statisticsData.Points.name as string]: {
                     number: points + currentPoints,
                 },
-                [resultDatabaseModelData.LastUpdateDate.name as string]: {
+                [statisticsData.LastUpdateDate.name as string]: {
                     date: { start: new Date(Date.now()).toISOString() },
                 },
             },
         });
     } else {
         throw new UserError(`没有找到当前页${itemPageId}`);
+    }
+
+    return 'resultPage';
+}
+
+export async function createStatusResultDatabase(notionClient: Client, parentId: string) {
+    const newDB = await notionClient.databases.create({
+        title: [{ text: { content: EDatabaseName.StatusResultDBName } }],
+        description: [{ text: { content: '各种状态下任务数量统计' } }],
+        parent: { page_id: parentId, type: 'page_id' },
+        properties: {
+            [statusData.Status.name]: {
+                type: 'title',
+                title: {},
+            },
+            [statusData.Counter.name]: {
+                type: 'number',
+                number: { format: 'number' },
+            },
+            [statusData.LastUpdateDate.name]: {
+                type: 'date',
+                date: {},
+            },
+        },
+    });
+    return newDB.id;
+}
+
+export async function insertStatusResultDatabaseItem(
+    notionClient: Client,
+    resultDBId: string,
+    status: string,
+    counter: number,
+) {
+    await notionClient.pages.create({
+        parent: {
+            database_id: resultDBId,
+        },
+        properties: {
+            [statusData.Status.name]: {
+                title: [{ text: { content: status } }],
+            },
+            [statusData.Counter.name]: {
+                number: counter,
+            },
+            [statusData.LastUpdateDate.name]: {
+                date: { start: new Date(Date.now()).toISOString() },
+            },
+        },
+    });
+    return 'resultPage';
+}
+
+/**
+ * @description: 在当前数值的基础上增加对应的值, 不变的写入0
+ * @return {*}
+ */
+export async function updateStatusResultDatabaseItem(
+    notionClient: Client,
+    resultDBId: string,
+    status: string,
+    counter: number,
+) {
+    const statusResult = await notionClient.databases.query({
+        database_id: resultDBId,
+        filter: {
+            or: [
+                {
+                    property: statusData.Status.name,
+                    title: {
+                        equals: status,
+                    },
+                },
+            ],
+        },
+    });
+    if (statusResult.results.length) {
+        await Promise.all(
+            statusResult.results.map(async (page) => {
+                const pageId = page.id;
+                // 累积更新
+                await notionClient.pages.update({
+                    page_id: pageId,
+                    properties: {
+                        [statusData.Counter.name as string]: {
+                            number: counter,
+                        },
+                        [statusData.LastUpdateDate.name as string]: {
+                            date: { start: new Date(Date.now()).toISOString() },
+                        },
+                    },
+                });
+            }),
+        );
+    } else {
+        await insertStatusResultDatabaseItem(notionClient, resultDBId, status, counter);
     }
 
     return 'resultPage';

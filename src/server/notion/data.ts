@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 11:42:24
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-19 22:42:13
+ * @LastEditTime: 2022-10-20 17:35:41
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/data.ts
  * @Description:
  *
@@ -13,11 +13,21 @@ import {
     EConfigurationItem,
     IRecordDatabaseModel,
     IStatisticsResultDatabaseModel,
+    IStatusResultDatabaseModel,
     EPropertyType,
 } from './types';
 export const configurationInitData: IConfigurationDB[] = [
     // 程序自动填写
-    { Key: EConfigurationItem.Auto_ResultDBId, Value: '', Description: '!!!程序自动填写,除非Value为空,否则不要修改' },
+    {
+        Key: EConfigurationItem.Auto_StatisticsResultDBId,
+        Value: '',
+        Description: '!!!程序自动填写,除非Value为空,否则不要修改',
+    },
+    {
+        Key: EConfigurationItem.Auto_StatusResultDBId,
+        Value: '',
+        Description: '!!!程序自动填写,除非Value为空,否则不要修改',
+    },
     {
         Key: EConfigurationItem.Auto_InformationSourceRecordDBId,
         Value: '',
@@ -119,7 +129,7 @@ export const configurationInitData: IConfigurationDB[] = [
     },
 ];
 
-export const resultDatabaseModelData: IStatisticsResultDatabaseModel = {
+export const statisticsResultDatabaseModelData: IStatisticsResultDatabaseModel = {
     ContributorId: {
         name: 'ContributorId',
         type: EPropertyType.TITLE,
@@ -149,6 +159,22 @@ export const resultDatabaseModelData: IStatisticsResultDatabaseModel = {
     },
     Points: {
         name: 'Points',
+        type: EPropertyType.NUMBER,
+        value: 0,
+    },
+    LastUpdateDate: {
+        name: 'LastUpdateDate',
+        type: EPropertyType.DATE,
+    },
+};
+
+export const statusResultDatabaseModelData: IStatusResultDatabaseModel = {
+    Status: {
+        name: 'Status',
+        type: EPropertyType.TITLE,
+    },
+    Counter: {
+        name: 'Counter',
         type: EPropertyType.NUMBER,
         value: 0,
     },
