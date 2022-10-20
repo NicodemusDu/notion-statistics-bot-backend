@@ -2,13 +2,13 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 17:40:07
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-20 16:34:16
+ * @LastEditTime: 2022-10-20 17:19:52
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/index.ts
  * @Description:
  *
  * Copyright (c) 2022 by Nicodemus nicodemusdu@gmail.com, All Rights Reserved.
  */
-import { Client, isFullPage } from '@notionhq/client';
+import { Client, isFullPage, isFullDatabase } from '@notionhq/client';
 import { Logger } from 'tsrpc';
 import {
     createConfigurationDatabase,
@@ -762,7 +762,52 @@ export async function testNotion() {
      */
 
     // Record 记录
-    await doOnceRecordAllTheTime(notionClient, projectDBConfig);
+    // await doOnceRecordAllTheTime(notionClient, projectDBConfig);
 
-    await doOnceStatisticsBeforToday(notionClient, projectDBConfig);
+    // await doOnceStatisticsBeforToday(notionClient, projectDBConfig);
+    const filedName = '状态';
+    const dbRetrieve = await notionClient.databases.retrieve({
+        database_id: projectDBConfig.StatisticsContributionDBIdList[0],
+    });
+    const options: {
+        [option in string]: number;
+    } = {};
+    if (isFullDatabase(dbRetrieve) && dbRetrieve.properties[filedName].type === 'select') {
+        dbRetrieve.properties[filedName].select.options.map((opt) => {
+            options[opt.name] = 0;
+        });
+    } else {
+        logger.error(`配置表中分类统计字段不是select类型`);
+    }
+    logger.log(options);
+
+    await Promise.all(
+        projectDBConfig.StatisticsContributionDBIdList.map(async (dbId) => {
+            await Promise.all(
+                Object.keys(options).map(async (opt) => {
+                    const waitTrans = await notionClient.databases.query({
+                        database_id: dbId,
+                        filter: {
+                            or: [
+                                {
+                                    property: filedName,
+                                    select: {
+                                        equals: opt,
+                                    },
+                                },
+                            ],
+                        },
+                    });
+                    await Promise.all(
+                        waitTrans.results.map(async () => {
+                            options[opt]++;
+                        }),
+                    );
+                }),
+            );
+        }),
+    );
+    Object.keys(options).map(async (opt) => {
+        logger.log(`${opt}: ${options[opt]}`);
+    });
 }
