@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 17:40:07
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-20 16:14:17
+ * @LastEditTime: 2022-10-20 16:34:16
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/index.ts
  * @Description:
  *
@@ -83,7 +83,7 @@ interface IProjectConfiguration {
     statisticFiledNameConfigMap: Map<string, string>;
 }
 
-const projectDBConfig: IProjectConfiguration = {
+export const projectDBConfig: IProjectConfiguration = {
     ConfigurationDatabaseId: '',
 
     StatisticsResultDBId: '',
