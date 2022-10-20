@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:25:08
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-20 10:09:59
+ * @LastEditTime: 2022-10-20 12:07:52
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/statistics.ts
  * @Description: 统计过程的相关操作和统计结果的数据库操作
  *
@@ -116,7 +116,6 @@ export async function increaseResultDatabaseItem(
     proofead: number,
     bounty: number,
     points: number,
-    logger: Logger,
 ) {
     const current = await notionClient.pages.retrieve({
         page_id: itemPageId,
@@ -160,7 +159,7 @@ export async function increaseResultDatabaseItem(
         }
 
         // 累积更新
-        const result = await notionClient.pages.update({
+        await notionClient.pages.update({
             page_id: itemPageId,
             properties: {
                 [resultDatabaseModelData.InformationSource.name as string]: {
@@ -183,7 +182,6 @@ export async function increaseResultDatabaseItem(
                 },
             },
         });
-        logger.log('result value:\t', result);
     } else {
         throw new UserError(`没有找到当前页${itemPageId}`);
     }

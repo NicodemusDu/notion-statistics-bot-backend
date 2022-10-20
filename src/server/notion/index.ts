@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 17:40:07
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-20 11:34:21
+ * @LastEditTime: 2022-10-20 15:15:53
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/index.ts
  * @Description:
  *
@@ -39,7 +39,12 @@ import {
     createResultDatabase,
     createAutofillPropertyInStatisticsSource,
 } from './statistics';
-import { createRecordDatabase, insertRecordDatabaseItem, getRecordDBNotCompletedPages } from './record';
+import {
+    createRecordDatabase,
+    insertRecordDatabaseItem,
+    getRecordDBNotCompletedPages,
+    setRecordDatabaseItemCompleted,
+} from './record';
 
 import { recordDatabaseModelData as recordData, resultDatabaseModelData as resultData } from './data';
 
@@ -47,6 +52,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 import { PageObjectResponse, PersonUserObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import dayjs from 'dayjs';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+dayjs.extend(isSameOrBefore);
 
 // 调试信息的输出方式
 export let logger: Logger;
@@ -609,7 +616,15 @@ export async function testNotion() {
     const st: {
         [contributorId in string]: IStatisticsResultDatabaseModel;
     } = {};
-    // 遍历Record
+    // 用来记录每个贡献者的贡献页面ID
+    const contributorPageId: {
+        [contributorId in string]: string[];
+    } = {};
+    // 本轮正常更新的贡献者ID
+    const updatedContributorIdList: string[] = [];
+    // 所有准备更新的Record数据库中的Page
+    const pageList: PageObjectResponse[] = [];
+    // 遍历Record, 找到所有未完成统计的记录
     await Promise.all(
         [
             projectDBConfig.InformationSourceRecordDBId,
@@ -619,14 +634,22 @@ export async function testNotion() {
             const pages = await getRecordDBNotCompletedPages(notionClient, dbId);
             await Promise.all(
                 pages.map(async (page) => {
+                    pageList.push(page);
                     const people = await pageResponseToPersonList(page, recordData.Contributor.name);
                     const infoNum = await pageResponseToNumber(page, recordData.Points.name);
                     if (people.length && infoNum) {
                         const id = people[0].id;
+                        // 保存贡献者的页面ID
+                        if (contributorPageId[id]) {
+                            contributorPageId[id].push(page.id);
+                            logger.log(`add contributorPageId:${id} , pageId:${page.id}`);
+                        } else {
+                            contributorPageId[id] = [page.id];
+                            logger.log(`new contributorPageId:${id} , pageId:${page.id}`);
+                        }
                         // 如果没有当前的索引值, 初始化一个
                         if (!st[id]) {
                             st[id] = JSON.parse(JSON.stringify(resultData)); // 深拷贝
-                            logger.log(`${id} is new value:\n`, st[id]);
                         }
                         (st[id].Points.value as number) += infoNum;
                         st[id].ContributorId.value = id;
@@ -677,13 +700,25 @@ export async function testNotion() {
             // 如果当前贡献者已经有过统计记录了, 就直接在之前的结果上累加贡献
             if (isExist.results.length) {
                 if (isFullPage(isExist.results[0])) {
-                    const lastDataObj = pageResponseStartDateToISOString(
+                    const lastDataByDB = pageResponseStartDateToISOString(
                         isExist.results[0],
                         resultData.LastUpdateDate.name,
                     );
-                    logger.log(`last update date: \t${dayjs(lastDataObj).format('YYYY-MM-DD')}`);
-                    if (dayjs(lastDataObj).format('YYYY-MM-DD') !== dayjs().format('YYYY-MM-DD')) {
+                    const today = dayjs();
+                    const lastDate = dayjs(lastDataByDB);
+                    if (
+                        lastDate.year() < today.year() ||
+                        (lastDate.year() <= today.year() && lastDate.month() < today.month()) ||
+                        (lastDate.year() <= today.year() &&
+                            lastDate.month() <= today.month() &&
+                            lastDate.day() < today.day())
+                    ) {
+                        // 如果当前贡献者的记录发生了更新, 就记录下来贡献者的id
+                        const cId = pageResponseToRichTextList(isExist.results[0], resultData.ContributorId.name);
+                        cId && cId.length && updatedContributorIdList.push(cId[0]);
+                        // 获取要更新的页面id
                         const pageId = isExist.results[0].id;
+                        // 更新贡献者页面
                         await increaseResultDatabaseItem(
                             notionClient,
                             pageId,
@@ -693,7 +728,6 @@ export async function testNotion() {
                             (st[contributorId].Proofead.value || 0) as number,
                             (st[contributorId].Bounty.value || 0) as number,
                             (st[contributorId].Points.value || 0) as number,
-                            logger,
                         );
                     }
                 }
@@ -714,5 +748,23 @@ export async function testNotion() {
             }
         }),
     );
-    logger.log('result:\n', st);
+    // 记录设置isCompleted出错的页面, 需要手动设置
+    const errorPageIdList: string[] = [];
+    // 本轮正常更新的贡献者ID
+    const updatedPageIdList: string[] = [];
+    // 获取本轮正常更新的page id
+    updatedContributorIdList.map((updatedCId) => {
+        updatedPageIdList.push(...contributorPageId[updatedCId]);
+    });
+
+    logger.log(`updatedContributorIdList:\t ${updatedContributorIdList}`);
+    await Promise.all(
+        updatedPageIdList.map(async (pageId) => {
+            const isSucc = await setRecordDatabaseItemCompleted(notionClient, pageId, true);
+            if (!isSucc) errorPageIdList.push(pageId);
+        }),
+    );
+    if (errorPageIdList.length) {
+        throw new UserError(`不好啦,记录出错了,这次统计的结果没有设置isCompleted标识, page信息:\t ${errorPageIdList}`);
+    }
 }

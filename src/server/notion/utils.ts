@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:21:01
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-20 10:19:56
+ * @LastEditTime: 2022-10-20 14:39:20
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/utils.ts
  * @Description: notion 基本操作工具(增删改查)
  *
@@ -17,6 +17,7 @@ import {
     QueryDatabaseResponse,
     PageObjectResponse,
     PersonUserObjectResponse,
+    RichTextItemResponse,
 } from '@notionhq/client/build/src/api-endpoints';
 import { notionClient, logger } from '.';
 import { UserError } from './error';
@@ -196,7 +197,6 @@ export async function getPagePropertyValue(notionClient: Client, pageId: string,
  */
 export async function getNumberPropertyValue(notionClient: Client, pageId: string, propertyId: string) {
     const result = await getPagePropertyValue(notionClient, pageId, propertyId);
-    logger.log('getNumberPropertyValue:\t', result);
     if (isPropertyList(result)) {
         if ((result as PropertyItemObjectResponse[])[0].type === 'number') {
             return (result as NumberPropertyItemObjectResponse[])[0].number;
@@ -345,7 +345,7 @@ export function pageResponseToPersonList(
 }
 
 /**
- * @description: 解析PageResponse的rich_text属性
+ * @description: 解析PageResponse的rich_text或者title属性
  * @param {PageObjectResponse} pageResponse
  * @param {string} propertyName
  * @return {*} 如果指定的属性名中包含rich_text属性,就把对应的string列表返回,否则返回空列表
@@ -354,11 +354,15 @@ export function pageResponseToRichTextList(pageResponse: PageObjectResponse, pro
     const list: string[] = [];
     try {
         const textObj = pageResponse.properties[propertyName];
+        let richArray: RichTextItemResponse[] = [];
         if (textObj.type === 'rich_text') {
-            textObj.rich_text.map((text) => {
-                list.push(text.plain_text);
-            });
+            richArray = textObj.rich_text;
+        } else if (textObj.type === 'title') {
+            richArray = textObj.title;
         }
+        richArray.map((text) => {
+            list.push(text.plain_text);
+        });
     } catch {
         return null;
     }
