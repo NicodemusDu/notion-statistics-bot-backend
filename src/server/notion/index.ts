@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 17:40:07
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-20 16:04:41
+ * @LastEditTime: 2022-10-20 16:14:17
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/index.ts
  * @Description:
  *
@@ -437,7 +437,14 @@ export async function saveToRecordDBFromPageObject({
     );
 }
 
-export async function doOnceFOrAllTimesRecord(notionClient: Client, projectConfig: IProjectConfiguration) {
+/**
+ * @description: 把所有需要统计的源数据库中每一条贡献记录都统计一边, 保存到对应的Record Database中
+ * @param {Client} notionClient
+ * @param {IProjectConfiguration} projectConfig
+ * @return {*}
+ */
+export async function doOnceRecordAllTheTime(notionClient: Client, projectConfig: IProjectConfiguration) {
+    logger.log('开始记录贡献啦!!!!!!!!!');
     await Promise.all(
         projectConfig.StatisticsContributionDBIdList.map(async (statisticsDBId) => {
             const pages = await getDatabaseAllPages(notionClient, statisticsDBId);
@@ -587,29 +594,7 @@ export async function doOnceFOrAllTimesRecord(notionClient: Client, projectConfi
     );
 }
 
-// TODO: 注意转换时区
-// export async function doOnceForAllTimesStatistics() {}
-// export async function doOnceForTimerangeStatistics() {}
-
-export async function testNotion() {
-    /**
-     * 常用类型: rich_text, title, date, number, [person], formula, 把常用类型判断做成utils工具吧;
-     *
-     * 统计步骤:
-     * 1. 筛选记录范围, 暂略
-     * 2. 读取数据库中每一页id
-     * 3. 读取每一页的属性值, 如果这一页不存在TaskId属性,就创建一个并且初始化成uuid.v4()
-     * 4. 使用读取的属性之,创建一条或者多条Record
-     * 5. 数据库中每一页属性全部记录完成后,开始统计结果
-     *
-     *
-     * 6. 筛选统计范围, 暂略
-     * 7. 读取所有record数据库中未完成统计的page, 把贡献信息记录到对应的贡献者身上, 并且把page标记为已完成.
-     */
-
-    // Record 记录
-    await doOnceFOrAllTimesRecord(notionClient, projectDBConfig);
-
+export async function doOnceStatisticsBeforToday(notionClient: Client, projectConfig: IProjectConfiguration) {
     logger.log('开始统计啦!!!!!!!!!');
     // Statistics 统计
     const st: {
@@ -626,9 +611,9 @@ export async function testNotion() {
     // 遍历Record, 找到所有未完成统计的记录
     await Promise.all(
         [
-            projectDBConfig.InformationSourceRecordDBId,
-            projectDBConfig.TranslationRecordDBId,
-            projectDBConfig.ProofeadRecordDBId,
+            projectConfig.InformationSourceRecordDBId,
+            projectConfig.TranslationRecordDBId,
+            projectConfig.ProofeadRecordDBId,
         ].map(async (dbId) => {
             const pages = await getRecordDBNotCompletedPages(notionClient, dbId);
             await Promise.all(
@@ -653,21 +638,21 @@ export async function testNotion() {
                         st[id].Contributor.value = people[0];
                         st[id].LastUpdateDate.value = new Date(Date.now()).toISOString();
                         switch (dbId) {
-                            case projectDBConfig.InformationSourceRecordDBId:
+                            case projectConfig.InformationSourceRecordDBId:
                                 if (st[id].InformationSource.value) {
                                     (st[id].InformationSource.value as number) += 1;
                                 } else {
                                     st[id].InformationSource.value = 1;
                                 }
                                 break;
-                            case projectDBConfig.TranslationRecordDBId:
+                            case projectConfig.TranslationRecordDBId:
                                 if (st[id].Translation.value) {
                                     (st[id].Translation.value as number) += 1;
                                 } else {
                                     st[id].Translation.value = 1;
                                 }
                                 break;
-                            case projectDBConfig.ProofeadRecordDBId:
+                            case projectConfig.ProofeadRecordDBId:
                                 if (st[id].Proofead.value) {
                                     (st[id].Proofead.value as number) += 1;
                                 } else {
@@ -684,7 +669,7 @@ export async function testNotion() {
     await Promise.all(
         Object.keys(st).map(async (contributorId) => {
             const isExist = await notionClient.databases.query({
-                database_id: projectDBConfig.StatisticsResultDBId,
+                database_id: projectConfig.StatisticsResultDBId,
                 filter: {
                     or: [
                         {
@@ -700,12 +685,6 @@ export async function testNotion() {
                     const lastDataByDB = pageResponseStartDateToISOString(
                         isExist.results[0],
                         resultData.LastUpdateDate.name,
-                    );
-                    logger.log(
-                        `LastUpdateDate: ${dayjs(lastDataByDB).toDate()}, is ${isBeforeDay(
-                            dayjs(lastDataByDB).toDate(),
-                            new Date(),
-                        )}`,
                     );
                     if (isBeforeDay(dayjs(lastDataByDB).toDate(), new Date())) {
                         // 如果当前贡献者的记录发生了更新, 就记录下来贡献者的id
@@ -731,7 +710,7 @@ export async function testNotion() {
                 // 如果之前没有记录过贡献, 就新建一个记录
                 await insertResultDatabaseItem(
                     notionClient,
-                    projectDBConfig.StatisticsResultDBId,
+                    projectConfig.StatisticsResultDBId,
                     st[contributorId].Contributor.value as PersonUserObjectResponse,
                     (st[contributorId].InformationSource.value || 0) as number,
                     (st[contributorId].Translation.value || 0) as number,
@@ -752,7 +731,6 @@ export async function testNotion() {
         updatedPageIdList.push(...contributorPageId[updatedCId]);
     });
 
-    logger.log(`updatedContributorIdList:\t ${updatedContributorIdList}`);
     await Promise.all(
         updatedPageIdList.map(async (pageId) => {
             const isSucc = await setRecordDatabaseItemCompleted(notionClient, pageId, true);
@@ -762,4 +740,29 @@ export async function testNotion() {
     if (errorPageIdList.length) {
         throw new UserError(`不好啦,记录出错了,这次统计的结果没有设置isCompleted标识, page信息:\t ${errorPageIdList}`);
     }
+}
+// TODO: 注意转换时区
+// export async function doOnceForAllTimesStatistics() {}
+// export async function doOnceForTimerangeStatistics() {}
+
+export async function testNotion() {
+    /**
+     * 常用类型: rich_text, title, date, number, [person], formula, 把常用类型判断做成utils工具吧;
+     *
+     * 统计步骤:
+     * 1. 筛选记录范围, 暂略
+     * 2. 读取数据库中每一页id
+     * 3. 读取每一页的属性值, 如果这一页不存在TaskId属性,就创建一个并且初始化成uuid.v4()
+     * 4. 使用读取的属性之,创建一条或者多条Record
+     * 5. 数据库中每一页属性全部记录完成后,开始统计结果
+     *
+     *
+     * 6. 筛选统计范围, 暂略
+     * 7. 读取所有record数据库中未完成统计的page, 把贡献信息记录到对应的贡献者身上, 并且把page标记为已完成.
+     */
+
+    // Record 记录
+    await doOnceRecordAllTheTime(notionClient, projectDBConfig);
+
+    await doOnceStatisticsBeforToday(notionClient, projectDBConfig);
 }
