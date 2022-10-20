@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 22:23:20
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-19 21:51:51
+ * @LastEditTime: 2022-10-20 11:17:28
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/types.ts
  * @Description:
  *
@@ -122,15 +122,6 @@ export enum EConfigurationItem {
     Filed_ProofreadStartTimeFiledName = 'Filed_ProofreadStartTimeFiledName',
     Filed_ProofreadonEndTimeFiledName = 'Filed_ProofreadonEndTimeFiledName',
     Filed_TaskIdFiledName = 'Filed_TaskIdFiledName',
-}
-
-export enum EResultItem {
-    ContributorId = 'ContributorId',
-    Contributor = 'Contributor',
-    TaskId = 'TaskId',
-    DatabaseId = 'DatabaseId',
-    Points = 'Points',
-    Date = 'Date',
 }
 
 /**          数据库模型                */

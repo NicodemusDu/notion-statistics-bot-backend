@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:25:08
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-17 18:02:05
+ * @LastEditTime: 2022-10-20 10:09:59
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/statistics.ts
  * @Description: 统计过程的相关操作和统计结果的数据库操作
  *
@@ -191,7 +191,7 @@ export async function increaseResultDatabaseItem(
     return 'resultPage';
 }
 
-export async function getAllContributor() {
+export async function getDefaultAllContributorInfo() {
     const members: Map<string, IMember> = new Map();
     members.set('nicodemusid', {
         id: 'nicodemusid',
@@ -202,28 +202,15 @@ export async function getAllContributor() {
 
     return members;
 }
-let members: Map<string, IMember> = new Map();
-async () => {
-    members = await getAllContributor();
-};
 
 /**
- * @description: 如果传入的member已经存在, 就更新信息存储列表
- * @param {IMember} memberInfo
+ * @description: 为数据源Database创建所有统计需要用到的字段
+ * @param {Client} notionClient
+ * @param {string} dbId
+ * @param {Map} propertyIdMap
+ * @param {*} string
  * @return {*}
  */
-export async function updateMemberRecord(memberInfo: IMember) {
-    const member = members.get(memberInfo.id);
-    if (member) {
-        memberInfo.informationSourceList && member.informationSourceList?.push(...memberInfo.informationSourceList);
-        memberInfo.translationList && member.translationList?.push(...memberInfo.translationList);
-        memberInfo.proofeadList && member.proofeadList?.push(...memberInfo.proofeadList);
-        memberInfo.bountyList && member.bountyList?.push(...memberInfo.bountyList);
-    } else {
-        members.set(memberInfo.id, memberInfo);
-    }
-}
-
 export async function createAutofillPropertyInStatisticsSource(
     notionClient: Client,
     dbId: string,

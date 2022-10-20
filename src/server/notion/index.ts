@@ -2,13 +2,13 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-10 17:40:07
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-19 22:42:07
+ * @LastEditTime: 2022-10-20 11:34:21
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/index.ts
  * @Description:
  *
  * Copyright (c) 2022 by Nicodemus nicodemusdu@gmail.com, All Rights Reserved.
  */
-import { Client } from '@notionhq/client';
+import { Client, isFullPage } from '@notionhq/client';
 import { Logger } from 'tsrpc';
 import {
     createConfigurationDatabase,
@@ -31,14 +31,7 @@ import {
     pageResponseToRichTextList,
     createUUIDForPage,
 } from './utils';
-import {
-    EDatabaseName,
-    EConfigurationItem,
-    IBaseType,
-    EPropertyType,
-    IStatisticsResultDatabaseModel,
-    EResultItem,
-} from './types';
+import { EDatabaseName, EConfigurationItem, IBaseType, EPropertyType, IStatisticsResultDatabaseModel } from './types';
 import { UserError } from './error';
 import {
     insertResultDatabaseItem,
@@ -51,9 +44,9 @@ import { createRecordDatabase, insertRecordDatabaseItem, getRecordDBNotCompleted
 import { recordDatabaseModelData as recordData, resultDatabaseModelData as resultData } from './data';
 
 import dotenv from 'dotenv';
-import { PageObjectResponse, PersonUserObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { info } from 'console';
 dotenv.config();
+import { PageObjectResponse, PersonUserObjectResponse } from '@notionhq/client/build/src/api-endpoints';
+import dayjs from 'dayjs';
 
 // 调试信息的输出方式
 export let logger: Logger;
@@ -665,6 +658,60 @@ export async function testNotion() {
                     }
                 }),
             );
+        }),
+    );
+
+    await Promise.all(
+        Object.keys(st).map(async (contributorId) => {
+            const isExist = await notionClient.databases.query({
+                database_id: projectDBConfig.StatisticsResultDBId,
+                filter: {
+                    or: [
+                        {
+                            property: resultData.ContributorId.name as string,
+                            title: { equals: contributorId as string },
+                        },
+                    ],
+                },
+            });
+            // 如果当前贡献者已经有过统计记录了, 就直接在之前的结果上累加贡献
+            if (isExist.results.length) {
+                if (isFullPage(isExist.results[0])) {
+                    const lastDataObj = pageResponseStartDateToISOString(
+                        isExist.results[0],
+                        resultData.LastUpdateDate.name,
+                    );
+                    logger.log(`last update date: \t${dayjs(lastDataObj).format('YYYY-MM-DD')}`);
+                    if (dayjs(lastDataObj).format('YYYY-MM-DD') !== dayjs().format('YYYY-MM-DD')) {
+                        const pageId = isExist.results[0].id;
+                        await increaseResultDatabaseItem(
+                            notionClient,
+                            pageId,
+                            contributorId,
+                            (st[contributorId].InformationSource.value || 0) as number,
+                            (st[contributorId].Translation.value || 0) as number,
+                            (st[contributorId].Proofead.value || 0) as number,
+                            (st[contributorId].Bounty.value || 0) as number,
+                            (st[contributorId].Points.value || 0) as number,
+                            logger,
+                        );
+                    }
+                }
+                logger.log(`${contributorId} is exist`);
+            } else {
+                // 如果之前没有记录过贡献, 就新建一个记录
+                await insertResultDatabaseItem(
+                    notionClient,
+                    projectDBConfig.StatisticsResultDBId,
+                    st[contributorId].Contributor.value as PersonUserObjectResponse,
+                    (st[contributorId].InformationSource.value || 0) as number,
+                    (st[contributorId].Translation.value || 0) as number,
+                    (st[contributorId].Proofead.value || 0) as number,
+                    (st[contributorId].Bounty.value || 0) as number,
+                    (st[contributorId].Points.value || 0) as number,
+                );
+                logger.log(`${contributorId} not exist`);
+            }
         }),
     );
     logger.log('result:\n', st);

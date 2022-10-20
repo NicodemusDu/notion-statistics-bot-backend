@@ -2,7 +2,7 @@
  * @Author: Nicodemus nicodemusdu@gmail.com
  * @Date: 2022-10-12 15:21:01
  * @LastEditors: Nicodemus nicodemusdu@gmail.com
- * @LastEditTime: 2022-10-19 21:43:47
+ * @LastEditTime: 2022-10-20 10:19:56
  * @FilePath: /notion-statistics-bot-backend/src/server/notion/utils.ts
  * @Description: notion 基本操作工具(增删改查)
  *
@@ -334,7 +334,7 @@ export function pageResponseToPersonList(
 ): PersonUserObjectResponse[] {
     const person = pageResponse.properties[propertyName];
     const list: PersonUserObjectResponse[] = [];
-    if (person.type === 'people' && 'type' in person.people[0]) {
+    if (person.type === 'people' && person.people.length && 'type' in person.people[0]) {
         person.people.map((p) => {
             if ('type' in p && p.type === 'person') {
                 list.push(p);
